@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>班級互動點名座位表 (26人自訂版)</title>
+    <title>班級互動點名座位表 (多班級試算表連動版)</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome Icons -->
@@ -68,15 +68,26 @@
                     <i class="fa-solid fa-chalkboard-user text-xl"></i>
                 </div>
                 <div>
-                    <h1 class="font-bold text-lg leading-tight flex items-center gap-2">
-                        班級互動點名座位表
+                    <div class="flex items-center gap-2">
+                        <h1 class="font-bold text-lg leading-tight">班級互動點名座位表</h1>
                         <span id="currentModeBadge" class="text-xs px-2 py-0.5 bg-amber-500 text-slate-900 rounded font-bold">點名模式</span>
-                    </h1>
-                    <p class="text-xs text-slate-300">真實教室佈局 (5排桌島 ‧ 40座位) ‧ 支援 26 人自訂名單與試算表同步</p>
+                    </div>
+                    <p class="text-xs text-slate-300">真實教室佈局 (5排桌島 ‧ 40座位) ‧ 支援高二/高三獨立班級切換與試算表同步</p>
                 </div>
             </div>
             
+            <!-- Class Switcher & Navigation Tools -->
             <div class="flex items-center flex-wrap gap-2">
+                <!-- Class Switcher Select -->
+                <div class="flex items-center bg-slate-700 px-2.5 py-1 rounded-lg border border-slate-600 gap-1.5 shadow-inner">
+                    <i class="fa-solid fa-graduation-cap text-amber-400 text-xs"></i>
+                    <span class="text-xs font-semibold text-slate-300">目前班級：</span>
+                    <select id="classSelector" onchange="switchClass(this.value)" class="bg-slate-900 text-amber-300 font-bold text-xs px-2 py-1 rounded outline-none cursor-pointer border border-slate-600">
+                        <option value="高二班級">高二班級</option>
+                        <option value="高三班級">高三班級</option>
+                    </select>
+                </div>
+
                 <!-- Mode Switch Button -->
                 <button id="toggleModeBtn" onclick="toggleEditMode()" class="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-900 text-xs font-bold rounded-lg transition shadow flex items-center gap-1.5">
                     <i class="fa-solid fa-pen-to-square"></i>
@@ -95,7 +106,7 @@
 
                 <button onclick="openHistoryModal()" class="px-3 py-1.5 bg-slate-900 hover:bg-slate-950 text-slate-200 text-xs font-medium rounded-lg transition shadow flex items-center gap-1.5 border border-slate-700">
                     <i class="fa-solid fa-clock-rotate-left"></i>
-                    <span>歷史紀錄</span>
+                    <span>紀錄與匯出</span>
                 </button>
             </div>
         </div>
@@ -112,7 +123,10 @@
                     <label class="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
                         <i class="fa-regular fa-calendar-days text-indigo-500"></i> 點名日期
                     </label>
-                    <span id="dayOfWeekTag" class="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded"></span>
+                    <div class="flex items-center gap-1.5">
+                        <span id="activeClassNameTag" class="text-xs font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">高二班級</span>
+                        <span id="dayOfWeekTag" class="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded"></span>
+                    </div>
                 </div>
                 
                 <div class="flex gap-2">
@@ -139,7 +153,7 @@
             <!-- Stats KPI Cards -->
             <div class="lg:col-span-7 bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
                 <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 flex items-center justify-between">
-                    <span><i class="fa-solid fa-chart-pie text-indigo-500 mr-1"></i> 即時出席統計</span>
+                    <span><i class="fa-solid fa-chart-pie text-indigo-500 mr-1"></i> 即時出席統計 (<span id="statsClassLabel">高二班級</span>)</span>
                     <span id="rateBadge" class="text-xs px-2.5 py-0.5 bg-emerald-100 text-emerald-800 rounded-full font-bold">出席率 100%</span>
                 </div>
 
@@ -188,8 +202,8 @@
                 <div id="editModeNotice" class="hidden p-2.5 bg-amber-50 border border-amber-300 text-amber-900 text-xs rounded-lg flex justify-between items-center">
                     <span><i class="fa-solid fa-circle-info text-amber-600 mr-1"></i> <b>目前為【編輯模式】</b>：點擊任一座位可修改學生姓名/座號，或設定為空位。</span>
                     <div class="flex gap-2">
-                        <button onclick="fill26SampleSeats()" class="px-2.5 py-1 bg-amber-200 hover:bg-amber-300 text-amber-900 font-bold rounded text-[11px] transition">
-                            載入 26 人範例名單
+                        <button onclick="fillSampleSeatsForCurrentClass()" class="px-2.5 py-1 bg-amber-200 hover:bg-amber-300 text-amber-900 font-bold rounded text-[11px] transition">
+                            載入此班級預設名單
                         </button>
                     </div>
                 </div>
@@ -245,8 +259,8 @@
 
             <div class="p-5 space-y-4 text-xs">
                 <div>
-                    <label class="block font-bold text-slate-700 mb-1">班級 / 座號 (例如：11401 或 01)：</label>
-                    <input type="text" id="editSeatCode" placeholder="如：11401" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-sm font-mono">
+                    <label class="block font-bold text-slate-700 mb-1">班級 / 座號 (例如：20101 或 01)：</label>
+                    <input type="text" id="editSeatCode" placeholder="如：20101" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-sm font-mono">
                 </div>
 
                 <div>
@@ -281,7 +295,7 @@
             <div class="p-4 bg-slate-800 text-white flex items-center justify-between">
                 <h3 class="font-bold text-sm flex items-center gap-2">
                     <i class="fa-solid fa-users-gear text-sky-400"></i>
-                    批次匯入 26 位（或自訂）學生名單
+                    批次匯入 <span id="batchModalClassLabel" class="text-amber-400 font-bold">高二班級</span> 學生名單
                 </h3>
                 <button onclick="closeBatchModal()" class="text-slate-400 hover:text-white">
                     <i class="fa-solid fa-xmark"></i>
@@ -289,26 +303,26 @@
             </div>
 
             <div class="p-5 overflow-y-auto space-y-3 text-xs">
-                <p class="text-slate-600">請貼上您的學生名單，每行一位學生（支援 <code>座號 姓名</code> 或僅 <code>姓名</code>）：</p>
+                <p class="text-slate-600">請貼上該班級的學生名單，每行一位學生（支援 <code>座號 姓名</code> 或僅 <code>姓名</code>）：</p>
                 
                 <div class="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-500 text-[11px] font-mono leading-tight flex justify-between items-center">
                     <div>
                         格式範例：<br>
-                        11401 陳大明<br>
-                        11402 林小華<br>
-                        11403 張哲偉
+                        20101 陳大明<br>
+                        20102 林小華<br>
+                        20103 張哲偉
                     </div>
-                    <button onclick="load26TemplateText()" class="px-2.5 py-1.5 bg-sky-100 hover:bg-sky-200 text-sky-800 font-bold rounded transition">
-                        自動填入 26 人範例格式
+                    <button onclick="loadTemplateTextForCurrentClass()" class="px-2.5 py-1.5 bg-sky-100 hover:bg-sky-200 text-sky-800 font-bold rounded transition">
+                        自動填入此班範例格式
                     </button>
                 </div>
 
-                <textarea id="batchInputText" rows="10" placeholder="在此貼上記錄好 26 位學生的名單..." class="w-full p-3 border border-slate-300 rounded-lg font-mono text-xs focus:ring-2 focus:ring-sky-500 outline-none leading-relaxed"></textarea>
+                <textarea id="batchInputText" rows="10" placeholder="在此貼上該班級學生的名單..." class="w-full p-3 border border-slate-300 rounded-lg font-mono text-xs focus:ring-2 focus:ring-sky-500 outline-none leading-relaxed"></textarea>
             </div>
 
             <div class="p-4 bg-slate-50 border-t border-slate-200 flex justify-between items-center">
                 <button onclick="clearAllSeats()" class="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-semibold rounded-lg transition">
-                    清空全班座位
+                    清空本班座位
                 </button>
                 <div class="flex gap-2">
                     <button onclick="closeBatchModal()" class="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-medium rounded-lg transition">
@@ -328,7 +342,7 @@
             <div class="p-4 bg-emerald-800 text-white flex items-center justify-between">
                 <div class="flex items-center space-x-2">
                     <i class="fa-solid fa-file-excel text-emerald-300 text-lg"></i>
-                    <h3 class="font-bold text-base">Google 試算表 (Google Sheets) 連動設定</h3>
+                    <h3 class="font-bold text-base">Google 試算表 (Google Sheets) 自動分班連動</h3>
                 </div>
                 <button onclick="closeGasModal()" class="text-emerald-200 hover:text-white text-lg">
                     <i class="fa-solid fa-xmark"></i>
@@ -337,33 +351,42 @@
 
             <div class="p-5 overflow-y-auto space-y-4 text-xs text-slate-600 leading-relaxed">
                 <div class="p-3 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-lg space-y-1">
-                    <p class="font-bold flex items-center gap-1"><i class="fa-solid fa-circle-info"></i> 設定說明：</p>
-                    <p>只需 3 步驟，即可將點名資料直接發送並自動記錄至您的 Google 試算表中：</p>
+                    <p class="font-bold flex items-center gap-1"><i class="fa-solid fa-circle-info"></i> 自動分工作表 (Tabs) 功能說明：</p>
+                    <p>下方 Apps Script 程式碼已升級！會自動依據送出的班級名稱（如「高二班級」、「高三班級」），在您的 Google 試算表中自動建立並記錄至對應的工作表頁籤，方便您分別整理高二與高三的點名資料。</p>
                 </div>
 
                 <ol class="list-decimal list-inside space-y-2 font-medium text-slate-700 bg-slate-50 p-3 rounded-lg border border-slate-200">
-                    <li>打開您的 Google 試算表，點擊選單 <span class="bg-white px-1.5 py-0.5 border rounded">擴充功能</span> ➔ <span class="bg-white px-1.5 py-0.5 border rounded">Apps Script</span>。</li>
-                    <li>將裡面的程式碼全部刪除，貼上下方專用程式碼並存檔。</li>
-                    <li>點擊右上角 <span class="bg-emerald-600 text-white px-1.5 py-0.5 rounded">部署</span> ➔ <span class="bg-white px-1.5 py-0.5 border rounded">新建部署</span>（類型選「Web 應用程式」，存取權限設為「任何人」），複製網址貼至最下方！</li>
+                    <li>開啟 Google 試算表，點擊選單 <span class="bg-white px-1.5 py-0.5 border rounded">擴充功能</span> ➔ <span class="bg-white px-1.5 py-0.5 border rounded">Apps Script</span>。</li>
+                    <li>刪除原本程式碼，將下方【自動分班版專用程式碼】貼上並存檔。</li>
+                    <li>點擊右上角 <span class="bg-emerald-600 text-white px-1.5 py-0.5 rounded">部署</span> ➔ <span class="bg-white px-1.5 py-0.5 border rounded">新建部署</span>（類型選「Web 應用程式」，存取權限設為「任何人」），將複製的網址貼在下方輸入框。</li>
                 </ol>
 
                 <div class="space-y-1">
                     <div class="flex justify-between items-center">
-                        <span class="font-semibold text-slate-700">Google Apps Script 專用程式碼：</span>
+                        <span class="font-semibold text-slate-700">Google Apps Script 自動分班專用程式碼：</span>
                         <button onclick="copyGasCode()" class="text-emerald-700 hover:underline font-bold text-[11px] flex items-center gap-1">
                             <i class="fa-regular fa-copy"></i> 複製程式碼
                         </button>
                     </div>
                     <pre id="gasCodeText" class="p-3 bg-slate-900 text-emerald-400 font-mono text-[11px] rounded-lg overflow-x-auto select-all">
 function doPost(e) {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
   var data = JSON.parse(e.postData.contents);
+  var className = data.className || "全班點名";
   
+  // 自動以班級名稱尋找或新建工作表 (Sheet Tab)
+  var sheet = ss.getSheetByName(className);
+  if (!sheet) {
+    sheet = ss.insertSheet(className);
+  }
+  
+  // 若工作表為全新空白，自動新增欄位標頭
   if (sheet.getLastRow() === 0) {
-    sheet.appendRow(["點名日期", "總人數", "出席人數", "缺席人數", "請假人數", "出席率", "缺席學生名單", "請假學生名單", "紀錄時間"]);
+    sheet.appendRow(["班級", "點名日期", "總人數", "出席人數", "缺席人數", "請假人數", "出席率", "缺席學生名單", "請假學生名單", "紀錄時間"]);
   }
   
   sheet.appendRow([
+    className,
     data.date,
     data.total,
     data.present,
@@ -397,13 +420,13 @@ function doPost(e) {
         </div>
     </div>
 
-    <!-- Modal 4: Attendance History Modal -->
+    <!-- Modal 4: Attendance History & CSV Export Modal -->
     <div id="historyModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
         <div class="bg-white max-w-2xl w-full rounded-2xl shadow-xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
             <div class="p-4 bg-slate-800 text-white flex items-center justify-between">
                 <h3 class="font-bold text-sm flex items-center gap-2">
                     <i class="fa-solid fa-clock-rotate-left text-slate-300"></i>
-                    點名紀錄歷史 Log
+                    點名歷史 Log 與 CSV 匯出
                 </h3>
                 <button onclick="closeHistoryModal()" class="text-slate-400 hover:text-white">
                     <i class="fa-solid fa-xmark"></i>
@@ -411,6 +434,13 @@ function doPost(e) {
             </div>
 
             <div class="p-5 overflow-y-auto space-y-3 text-xs flex-1">
+                <div class="flex justify-between items-center bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                    <span class="font-bold text-slate-700">下載點名數據檔案 (Excel/CSV 相容)</span>
+                    <button onclick="exportHistoryCSV()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded text-xs transition flex items-center gap-1.5 shadow">
+                        <i class="fa-solid fa-file-csv"></i> 匯出全部點名紀錄 CSV
+                    </button>
+                </div>
+
                 <div id="historyLogList" class="space-y-2">
                     <!-- History entries rendered dynamically -->
                 </div>
@@ -436,47 +466,77 @@ function doPost(e) {
     <script>
         // --- DATA & STATE MANAGEMENT ---
         const TOTAL_SEATS_CAPACITY = 40; // 5 rows x 2 clusters x 4 seats
+        let currentClass = '高二班級';
         let isEditMode = false;
         let activeEditIndex = null;
 
-        // Seat status: 'present' (出席), 'absent' (缺席), 'excused' (請假/遲到)
-        // Seats Array: 40 seats
+        // Seats Array for active class: 40 seats
         let seats = [];
 
-        // Sample 26 students template list
-        const default26Students = Array.from({ length: 26 }, (_, i) => {
-            const num = (i + 1).toString().padStart(2, '0');
-            return {
-                studentId: `114${num}`,
-                name: `學生${num}`
-            };
-        });
+        // Sample rosters for Grade 11 (高二) & Grade 12 (高三)
+        function generateClassSampleRoster(prefix, count) {
+            return Array.from({ length: count }, (_, i) => {
+                const num = (i + 1).toString().padStart(2, '0');
+                return {
+                    studentId: `${prefix}${num}`,
+                    name: `學生${num}`
+                };
+            });
+        }
 
-        // Initialize Seats Data
+        const classDefaults = {
+            '高二班級': generateClassSampleRoster('20', 26),
+            '高三班級': generateClassSampleRoster('30', 26)
+        };
+
+        // --- CLASS SWITCHING LOGIC ---
+
+        function switchClass(newClass) {
+            saveSeatsToStorage(); // Save current class state first
+            currentClass = newClass;
+            localStorage.setItem('classroom_active_class', currentClass);
+            
+            updateClassLabelsUI();
+            initSeats();
+            renderGrid();
+            renderStats();
+            showToast(`已切換至【${currentClass}】`, 'info');
+        }
+
+        function updateClassLabelsUI() {
+            document.getElementById('classSelector').value = currentClass;
+            document.getElementById('activeClassNameTag').innerText = currentClass;
+            document.getElementById('statsClassLabel').innerText = currentClass;
+            document.getElementById('batchModalClassLabel').innerText = currentClass;
+        }
+
+        // Initialize Seats Data for active class
         function initSeats() {
-            const savedSeats = localStorage.getItem('classroom_seats_26');
+            const storageKey = `classroom_seats_${currentClass}`;
+            const savedSeats = localStorage.getItem(storageKey);
+            
             if (savedSeats) {
                 try {
                     seats = JSON.parse(savedSeats);
                     return;
                 } catch(e) {
-                    console.error("Error loading saved seats:", e);
+                    console.error("Error loading saved seats for " + currentClass, e);
                 }
             }
 
-            // Default initial placement: 26 students distributed across 40 seats
+            // Generate default seats for this class if no storage exists
+            const defaultRoster = classDefaults[currentClass] || generateClassSampleRoster('10', 26);
             seats = [];
             let studentCounter = 0;
 
             for (let i = 0; i < TOTAL_SEATS_CAPACITY; i++) {
                 const row = Math.floor(i / 8) + 1;
                 const cluster = (i % 8 < 4) ? 'left' : 'right';
-                const posInCluster = i % 4; // 0: TL, 1: TR, 2: BL, 3: BR
+                const posInCluster = i % 4;
 
                 let student = null;
-                // Place 26 students (fill left & right clusters naturally, leaving some empty seats at bottom/corners)
-                if (studentCounter < default26Students.length) {
-                    student = default26Students[studentCounter++];
+                if (studentCounter < defaultRoster.length) {
+                    student = defaultRoster[studentCounter++];
                 }
 
                 seats.push({
@@ -492,7 +552,8 @@ function doPost(e) {
         }
 
         function saveSeatsToStorage() {
-            localStorage.setItem('classroom_seats_26', JSON.stringify(seats));
+            const storageKey = `classroom_seats_${currentClass}`;
+            localStorage.setItem(storageKey, JSON.stringify(seats));
         }
 
         // --- DOM RENDERERS ---
@@ -501,12 +562,10 @@ function doPost(e) {
             const gridContainer = document.getElementById('seatingGrid');
             gridContainer.innerHTML = '';
 
-            // Group by 5 Rows
             for (let r = 1; r <= 5; r++) {
                 const rowDiv = document.createElement('div');
                 rowDiv.className = 'grid grid-cols-1 md:grid-cols-2 gap-4 items-center';
 
-                // Left Cluster & Right Cluster
                 const leftClusterSeats = seats.filter(s => s.row === r && s.cluster === 'left');
                 const rightClusterSeats = seats.filter(s => s.row === r && s.cluster === 'right');
 
@@ -620,8 +679,8 @@ function doPost(e) {
                 container.innerHTML = `
                     <div class="p-6 text-center text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
                         <i class="fa-solid fa-circle-check text-emerald-500 text-2xl mb-2 block"></i>
-                        <p class="text-xs font-semibold text-slate-600">今日目前全員出席！</p>
-                        <p class="text-[11px] text-slate-400 mt-0.5">點擊學生座位可調整出缺席紀錄</p>
+                        <p class="text-xs font-semibold text-slate-600">【${currentClass}】今日全員出席！</p>
+                        <p class="text-[11px] text-slate-400 mt-0.5">點擊學生座位卡片可調整出缺席狀態</p>
                     </div>
                 `;
                 return;
@@ -667,7 +726,7 @@ function doPost(e) {
 
         function toggleSingleSeatStatus(index) {
             const seat = seats[index];
-            if (!seat.name && !seat.studentId) return; // empty desk
+            if (!seat.name && !seat.studentId) return;
 
             if (seat.status === 'present') {
                 seat.status = 'absent';
@@ -689,7 +748,7 @@ function doPost(e) {
             saveSeatsToStorage();
             renderGrid();
             renderStats();
-            showToast('已將所有位子學生標記為「出席」', 'success');
+            showToast(`已將【${currentClass}】全員標記為「出席」`, 'success');
         }
 
         function resetAllStatus() {
@@ -699,7 +758,7 @@ function doPost(e) {
             saveSeatsToStorage();
             renderGrid();
             renderStats();
-            showToast('已重設出缺席狀態', 'info');
+            showToast(`已重設【${currentClass}】出席狀態`, 'info');
         }
 
         function toggleEditMode() {
@@ -730,7 +789,7 @@ function doPost(e) {
         function openSingleSeatModal(index) {
             activeEditIndex = index;
             const seat = seats[index];
-            document.getElementById('seatPositionTag').innerText = `(第 ${seat.row} 排 ‧ ${seat.cluster === 'left' ? '左桌島' : '右桌島'})`;
+            document.getElementById('seatPositionTag').innerText = `(${currentClass} ‧ 第 ${seat.row} 排 ‧ ${seat.cluster === 'left' ? '左桌島' : '右桌島'})`;
             document.getElementById('editSeatCode').value = seat.studentId || '';
             document.getElementById('editSeatName').value = seat.name || '';
             document.getElementById('singleSeatModal').classList.remove('hidden');
@@ -766,12 +825,13 @@ function doPost(e) {
             renderGrid();
             renderStats();
             closeSingleSeatModal();
-            showToast('已清空此座位', 'info');
+            showToast('已設為空位', 'info');
         }
 
         // --- BATCH IMPORT MODAL ---
 
         function openBatchModal() {
+            document.getElementById('batchModalClassLabel').innerText = currentClass;
             document.getElementById('batchModal').classList.remove('hidden');
         }
 
@@ -779,8 +839,9 @@ function doPost(e) {
             document.getElementById('batchModal').classList.add('hidden');
         }
 
-        function load26TemplateText() {
-            const template = default26Students.map(s => `${s.studentId} ${s.name}`).join('\n');
+        function loadTemplateTextForCurrentClass() {
+            const roster = classDefaults[currentClass] || generateClassSampleRoster('10', 26);
+            const template = roster.map(s => `${s.studentId} ${s.name}`).join('\n');
             document.getElementById('batchInputText').value = template;
         }
 
@@ -793,14 +854,12 @@ function doPost(e) {
 
             const lines = rawText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
             
-            // Clear current seats
             seats.forEach(s => {
                 s.studentId = '';
                 s.name = '';
                 s.status = 'present';
             });
 
-            // Fill sequentially
             lines.forEach((line, idx) => {
                 if (idx < TOTAL_SEATS_CAPACITY) {
                     const parts = line.split(/\s+/);
@@ -818,17 +877,18 @@ function doPost(e) {
             renderGrid();
             renderStats();
             closeBatchModal();
-            showToast(`已成功匯入 ${lines.length} 位學生座位資料`, 'success');
+            showToast(`已成功匯入【${currentClass}】 ${lines.length} 位學生名單`, 'success');
         }
 
-        function fill26SampleSeats() {
+        function fillSampleSeatsForCurrentClass() {
             seats.forEach(s => {
                 s.studentId = '';
                 s.name = '';
                 s.status = 'present';
             });
 
-            default26Students.forEach((st, idx) => {
+            const roster = classDefaults[currentClass] || generateClassSampleRoster('10', 26);
+            roster.forEach((st, idx) => {
                 if (idx < TOTAL_SEATS_CAPACITY) {
                     seats[idx].studentId = st.studentId;
                     seats[idx].name = st.name;
@@ -838,11 +898,11 @@ function doPost(e) {
             saveSeatsToStorage();
             renderGrid();
             renderStats();
-            showToast('已載入 26 人範例名單', 'success');
+            showToast(`已重置【${currentClass}】預設名單`, 'success');
         }
 
         function clearAllSeats() {
-            if (confirm('確定要清空全班所有座位名單嗎？')) {
+            if (confirm(`確定要清空【${currentClass}】所有座位名單嗎？`)) {
                 seats.forEach(s => {
                     s.studentId = '';
                     s.name = '';
@@ -852,7 +912,7 @@ function doPost(e) {
                 renderGrid();
                 renderStats();
                 closeBatchModal();
-                showToast('全班座位已清空', 'info');
+                showToast(`【${currentClass}】座位已清空`, 'info');
             }
         }
 
@@ -878,7 +938,7 @@ function doPost(e) {
         function copyGasCode() {
             const code = document.getElementById('gasCodeText').innerText;
             navigator.clipboard.writeText(code).then(() => {
-                showToast('已複製 GAS 專用程式碼！', 'success');
+                showToast('已複製 GAS 自動分班專用程式碼！', 'success');
             });
         }
 
@@ -891,7 +951,7 @@ function doPost(e) {
             const excused = activeSeats.filter(s => s.status === 'excused');
             const rate = total > 0 ? ((present / total) * 100).toFixed(1) : '100.0';
 
-            let summary = `【${dateVal} 班級點名紀錄】\n`;
+            let summary = `【${dateVal} ${currentClass}點名紀錄】\n`;
             summary += `全班人數：${total} 人 | 出席：${present} 人 | 出席率：${rate}%\n`;
             summary += `----------------------------------------\n`;
             
@@ -914,7 +974,7 @@ function doPost(e) {
             }
 
             navigator.clipboard.writeText(summary).then(() => {
-                showToast('已複製點名文字摘要至剪貼簿！', 'success');
+                showToast(`已複製【${currentClass}】點名摘要至剪貼簿！`, 'success');
             });
         }
 
@@ -928,6 +988,7 @@ function doPost(e) {
             const rate = total > 0 ? ((present / total) * 100).toFixed(1) : '100.0';
 
             const payload = {
+                className: currentClass,
                 date: dateVal,
                 total: total,
                 present: present,
@@ -939,36 +1000,35 @@ function doPost(e) {
                 timestamp: new Date().toLocaleString("zh-TW", { timeZone: "Asia/Taipei" })
             };
 
-            // Save to Local History
             saveHistoryLog(payload);
 
             const webhookUrl = localStorage.getItem('classroom_gas_url');
             if (!webhookUrl) {
-                showToast('紀錄已儲存至歷史紀錄！(未設定 Google 試算表 Webhook)', 'info');
+                showToast(`【${currentClass}】紀錄已儲存至歷史紀錄！(未設定 Google 試算表 Webhook)`, 'info');
                 return;
             }
 
             try {
-                showToast('正在發送至 Google 試算表...', 'info');
+                showToast(`正在發送【${currentClass}】紀錄至 Google 試算表...`, 'info');
                 await fetch(webhookUrl, {
                     method: 'POST',
                     mode: 'no-cors',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
-                showToast('點名紀錄已成功同步至 Google 試算表！', 'success');
+                showToast(`【${currentClass}】點名紀錄已成功同步至 Google 試算表！`, 'success');
             } catch (err) {
                 console.error(err);
                 showToast('發送至試算表時發生錯誤，但紀錄已備份於本地', 'warning');
             }
         }
 
-        // --- HISTORY LOGS ---
+        // --- HISTORY & CSV EXPORT LOGIC ---
 
         function saveHistoryLog(logItem) {
             let logs = JSON.parse(localStorage.getItem('classroom_history_logs') || '[]');
             logs.unshift(logItem);
-            if (logs.length > 50) logs = logs.slice(0, 50); // keep last 50
+            if (logs.length > 100) logs = logs.slice(0, 100);
             localStorage.setItem('classroom_history_logs', JSON.stringify(logs));
         }
 
@@ -993,7 +1053,10 @@ function doPost(e) {
             container.innerHTML = logs.map(l => `
                 <div class="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-1">
                     <div class="flex justify-between items-center font-bold text-slate-700">
-                        <span>📅 ${l.date}</span>
+                        <span class="flex items-center gap-2">
+                            <span class="px-2 py-0.5 bg-indigo-100 text-indigo-800 text-[11px] rounded">${l.className || '全班'}</span>
+                            <span>📅 ${l.date}</span>
+                        </span>
                         <span class="text-xs font-semibold px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded">出席率 ${l.rate}%</span>
                     </div>
                     <div class="text-[11px] text-slate-500">
@@ -1004,6 +1067,31 @@ function doPost(e) {
                     <div class="text-[10px] text-slate-400 text-right">紀錄時間: ${l.timestamp}</div>
                 </div>
             `).join('');
+        }
+
+        function exportHistoryCSV() {
+            const logs = JSON.parse(localStorage.getItem('classroom_history_logs') || '[]');
+            if (logs.length === 0) {
+                showToast('尚無歷史紀錄可匯出', 'warning');
+                return;
+            }
+
+            let csvContent = "\uFEFF班級,點名日期,總人數,出席人數,缺席人數,請假人數,出席率,缺席名單,請假名單,紀錄時間\n";
+            logs.forEach(l => {
+                const absentStr = `"${(l.absentList || []).join('; ')}"`;
+                const excusedStr = `"${(l.excusedList || []).join('; ')}"`;
+                csvContent += `${l.className || '全班'},${l.date},${l.total},${l.present},${l.absent},${l.excused},${l.rate}%,${absentStr},${excusedStr},${l.timestamp}\n`;
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `班級點名歷史紀錄_${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            showToast('已匯出全部點名紀錄 CSV 檔案！', 'success');
         }
 
         function clearHistoryLogs() {
@@ -1056,6 +1144,13 @@ function doPost(e) {
         document.addEventListener('DOMContentLoaded', () => {
             resetTodayDate();
             document.getElementById('attendanceDate').addEventListener('change', updateDayOfWeek);
+            
+            const savedClass = localStorage.getItem('classroom_active_class');
+            if (savedClass) {
+                currentClass = savedClass;
+            }
+            updateClassLabelsUI();
+            
             initSeats();
             renderGrid();
             renderStats();
