@@ -1,0 +1,1065 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>班級互動點名座位表 (26人自訂版)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Font Inter / Noto Sans TC -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            500: '#0284c7',
+                            600: '#0369a1',
+                            700: '#075985',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Noto Sans TC', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .seat-card {
+            transition: all 0.15s ease-in-out;
+            user-select: none;
+        }
+        .seat-card:hover {
+            transform: translateY(-2px);
+        }
+        .desk-cluster {
+            background-color: #f8fafc;
+            border: 2px solid #cbd5e1;
+        }
+        .edit-mode-active .seat-card {
+            border-style: dashed !important;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans min-h-screen pb-12">
+
+    <!-- App Header -->
+    <header class="bg-slate-800 text-white shadow-md sticky top-0 z-30 border-b border-slate-700">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center space-x-3">
+                <div class="p-2 bg-slate-700 rounded-lg shadow-inner text-amber-400">
+                    <i class="fa-solid fa-chalkboard-user text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg leading-tight flex items-center gap-2">
+                        班級互動點名座位表
+                        <span id="currentModeBadge" class="text-xs px-2 py-0.5 bg-amber-500 text-slate-900 rounded font-bold">點名模式</span>
+                    </h1>
+                    <p class="text-xs text-slate-300">真實教室佈局 (5排桌島 ‧ 40座位) ‧ 支援 26 人自訂名單與試算表同步</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center flex-wrap gap-2">
+                <!-- Mode Switch Button -->
+                <button id="toggleModeBtn" onclick="toggleEditMode()" class="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-900 text-xs font-bold rounded-lg transition shadow flex items-center gap-1.5">
+                    <i class="fa-solid fa-pen-to-square"></i>
+                    <span id="modeBtnText">編輯名單 / 座位</span>
+                </button>
+
+                <button onclick="openBatchModal()" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-100 text-xs font-medium rounded-lg transition shadow flex items-center gap-1.5 border border-slate-600">
+                    <i class="fa-solid fa-users-gear text-sky-400"></i>
+                    <span>批次匯入學生</span>
+                </button>
+
+                <button onclick="openGasModal()" class="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-medium rounded-lg transition shadow flex items-center gap-1.5">
+                    <i class="fa-solid fa-file-excel"></i>
+                    <span>試算表連動</span>
+                </button>
+
+                <button onclick="openHistoryModal()" class="px-3 py-1.5 bg-slate-900 hover:bg-slate-950 text-slate-200 text-xs font-medium rounded-lg transition shadow flex items-center gap-1.5 border border-slate-700">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                    <span>歷史紀錄</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 mt-4 space-y-4">
+
+        <!-- Control Bar & Live Stats -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            
+            <!-- Date & Actions Panel -->
+            <div class="lg:col-span-5 bg-white p-4 rounded-xl shadow-sm border border-slate-200 space-y-3">
+                <div class="flex items-center justify-between">
+                    <label class="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                        <i class="fa-regular fa-calendar-days text-indigo-500"></i> 點名日期
+                    </label>
+                    <span id="dayOfWeekTag" class="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded"></span>
+                </div>
+                
+                <div class="flex gap-2">
+                    <input type="date" id="attendanceDate" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-medium focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none">
+                    <button onclick="resetTodayDate()" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs rounded-lg transition whitespace-nowrap font-medium">
+                        今日
+                    </button>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="pt-2 border-t border-slate-100 flex flex-wrap gap-2">
+                    <button onclick="markAllPresent()" class="flex-1 py-2 px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-lg border border-emerald-200 transition flex items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-check-double"></i> 一鍵全到
+                    </button>
+                    <button onclick="resetAllStatus()" class="py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-medium rounded-lg transition flex items-center justify-center gap-1">
+                        <i class="fa-solid fa-rotate-left"></i> 重設出席
+                    </button>
+                    <button onclick="submitAttendance()" class="flex-1 py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg shadow-sm transition flex items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-paper-plane"></i> 送出點名紀錄
+                    </button>
+                </div>
+            </div>
+
+            <!-- Stats KPI Cards -->
+            <div class="lg:col-span-7 bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
+                <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 flex items-center justify-between">
+                    <span><i class="fa-solid fa-chart-pie text-indigo-500 mr-1"></i> 即時出席統計</span>
+                    <span id="rateBadge" class="text-xs px-2.5 py-0.5 bg-emerald-100 text-emerald-800 rounded-full font-bold">出席率 100%</span>
+                </div>
+
+                <div class="grid grid-cols-4 gap-2 text-center">
+                    <div class="p-2.5 bg-slate-50 rounded-lg border border-slate-100">
+                        <p class="text-xs text-slate-500">班級學生數</p>
+                        <p id="totalCount" class="text-xl font-bold text-slate-800">26</p>
+                    </div>
+                    <div class="p-2.5 bg-emerald-50 rounded-lg border border-emerald-100">
+                        <p class="text-xs text-emerald-600 font-medium">出席人數</p>
+                        <p id="presentCount" class="text-xl font-bold text-emerald-700">26</p>
+                    </div>
+                    <div class="p-2.5 bg-rose-50 rounded-lg border border-rose-100">
+                        <p class="text-xs text-rose-600 font-medium">缺席人數</p>
+                        <p id="absentCount" class="text-xl font-bold text-rose-700">0</p>
+                    </div>
+                    <div class="p-2.5 bg-amber-50 rounded-lg border border-amber-100">
+                        <p class="text-xs text-amber-600 font-medium">請假/遲到</p>
+                        <p id="excusedCount" class="text-xl font-bold text-amber-700">0</p>
+                    </div>
+                </div>
+
+                <!-- Status Legend -->
+                <div class="flex flex-wrap items-center justify-center gap-4 text-xs text-slate-500 pt-2 border-t border-slate-100 mt-2">
+                    <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-emerald-500 inline-block"></span> 出席 (點擊卡片切換)</span>
+                    <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-rose-500 inline-block"></span> 缺席</span>
+                    <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-amber-500 inline-block"></span> 請假 / 遲到</span>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Classroom Visual Grid (5 Rows x 2 Islands) & Absent List -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            
+            <!-- Classroom Map (Left 8 Cols) -->
+            <div class="lg:col-span-8 bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
+                
+                <!-- Blackboard Header -->
+                <div class="w-full bg-slate-800 text-white text-center py-3 rounded-lg shadow relative flex items-center justify-center gap-2 border-b-4 border-amber-500">
+                    <i class="fa-solid fa-chalkboard text-slate-300"></i>
+                    <span class="font-bold tracking-widest text-base text-slate-100">【 講 台 / 黑 板 】</span>
+                    <span class="text-xs text-slate-400 absolute right-4 hidden sm:inline">（面向黑板方向）</span>
+                </div>
+
+                <div id="editModeNotice" class="hidden p-2.5 bg-amber-50 border border-amber-300 text-amber-900 text-xs rounded-lg flex justify-between items-center">
+                    <span><i class="fa-solid fa-circle-info text-amber-600 mr-1"></i> <b>目前為【編輯模式】</b>：點擊任一座位可修改學生姓名/座號，或設定為空位。</span>
+                    <div class="flex gap-2">
+                        <button onclick="fill26SampleSeats()" class="px-2.5 py-1 bg-amber-200 hover:bg-amber-300 text-amber-900 font-bold rounded text-[11px] transition">
+                            載入 26 人範例名單
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Classroom Grid Container (5 Rows of 2 Desk Clusters) -->
+                <div id="seatingGrid" class="space-y-5 overflow-x-auto pb-2">
+                    <!-- Dynamic 5 Rows rendered here -->
+                </div>
+
+            </div>
+
+            <!-- Absent Student Real-time Summary (Right 4 Cols) -->
+            <div class="lg:col-span-4 bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center justify-between border-b border-slate-100 pb-2 mb-3">
+                        <h2 class="font-bold text-sm text-slate-700 flex items-center gap-1.5">
+                            <i class="fa-solid fa-clipboard-user text-indigo-600"></i> 缺席/請假學生名單
+                        </h2>
+                        <span id="absentBadgeCount" class="text-xs font-semibold px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full">0 人</span>
+                    </div>
+
+                    <!-- Absent List Container -->
+                    <div id="absentListContainer" class="space-y-2 max-h-[500px] overflow-y-auto pr-1">
+                        <!-- Dynamic absent entries -->
+                    </div>
+                </div>
+
+                <!-- Sync Quick Button & Quick Copy -->
+                <div class="pt-3 border-t border-slate-100 mt-4 space-y-2">
+                    <button onclick="copyAbsentSummary()" class="w-full py-2.5 px-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-lg border border-indigo-200 transition flex items-center justify-center gap-1.5 shadow-sm">
+                        <i class="fa-regular fa-copy"></i> 複製點名文字摘要
+                    </button>
+                    <p class="text-[11px] text-slate-400 text-center">可直接貼至導師會報群組或 Line 備忘錄</p>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- Modal 1: Single Seat Edit Modal -->
+    <div id="singleSeatModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white max-w-md w-full rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+            <div class="p-4 bg-slate-800 text-white flex items-center justify-between">
+                <h3 class="font-bold text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-user-pen text-amber-400"></i>
+                    編輯座位資料 <span id="seatPositionTag" class="text-xs text-slate-300 font-normal"></span>
+                </h3>
+                <button onclick="closeSingleSeatModal()" class="text-slate-400 hover:text-white">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="p-5 space-y-4 text-xs">
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">班級 / 座號 (例如：11401 或 01)：</label>
+                    <input type="text" id="editSeatCode" placeholder="如：11401" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-sm font-mono">
+                </div>
+
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">學生姓名：</label>
+                    <input type="text" id="editSeatName" placeholder="如：王小明" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-sm font-bold">
+                </div>
+
+                <div class="p-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-500 leading-relaxed">
+                    💡 提示：若此位置目前沒有學生（空位），可直接將座號與姓名留空，點擊「設為空位」。
+                </div>
+            </div>
+
+            <div class="p-4 bg-slate-50 border-t border-slate-200 flex justify-between items-center">
+                <button onclick="clearCurrentSeat()" class="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-semibold rounded-lg transition">
+                    設為空位
+                </button>
+                <div class="flex gap-2">
+                    <button onclick="closeSingleSeatModal()" class="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-medium rounded-lg transition">
+                        取消
+                    </button>
+                    <button onclick="saveSingleSeat()" class="px-4 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-900 text-xs font-bold rounded-lg shadow transition">
+                        儲存變更
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal 2: Batch Student Import Modal -->
+    <div id="batchModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white max-w-xl w-full rounded-2xl shadow-xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="p-4 bg-slate-800 text-white flex items-center justify-between">
+                <h3 class="font-bold text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-users-gear text-sky-400"></i>
+                    批次匯入 26 位（或自訂）學生名單
+                </h3>
+                <button onclick="closeBatchModal()" class="text-slate-400 hover:text-white">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="p-5 overflow-y-auto space-y-3 text-xs">
+                <p class="text-slate-600">請貼上您的學生名單，每行一位學生（支援 <code>座號 姓名</code> 或僅 <code>姓名</code>）：</p>
+                
+                <div class="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-500 text-[11px] font-mono leading-tight flex justify-between items-center">
+                    <div>
+                        格式範例：<br>
+                        11401 陳大明<br>
+                        11402 林小華<br>
+                        11403 張哲偉
+                    </div>
+                    <button onclick="load26TemplateText()" class="px-2.5 py-1.5 bg-sky-100 hover:bg-sky-200 text-sky-800 font-bold rounded transition">
+                        自動填入 26 人範例格式
+                    </button>
+                </div>
+
+                <textarea id="batchInputText" rows="10" placeholder="在此貼上記錄好 26 位學生的名單..." class="w-full p-3 border border-slate-300 rounded-lg font-mono text-xs focus:ring-2 focus:ring-sky-500 outline-none leading-relaxed"></textarea>
+            </div>
+
+            <div class="p-4 bg-slate-50 border-t border-slate-200 flex justify-between items-center">
+                <button onclick="clearAllSeats()" class="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-semibold rounded-lg transition">
+                    清空全班座位
+                </button>
+                <div class="flex gap-2">
+                    <button onclick="closeBatchModal()" class="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-medium rounded-lg transition">
+                        取消
+                    </button>
+                    <button onclick="applyBatchImport()" class="px-4 py-1.5 bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold rounded-lg shadow transition">
+                        依序填入座位表
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal 3: Google Apps Script Webhook Setup -->
+    <div id="gasModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white max-w-2xl w-full rounded-2xl shadow-xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="p-4 bg-emerald-800 text-white flex items-center justify-between">
+                <div class="flex items-center space-x-2">
+                    <i class="fa-solid fa-file-excel text-emerald-300 text-lg"></i>
+                    <h3 class="font-bold text-base">Google 試算表 (Google Sheets) 連動設定</h3>
+                </div>
+                <button onclick="closeGasModal()" class="text-emerald-200 hover:text-white text-lg">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="p-5 overflow-y-auto space-y-4 text-xs text-slate-600 leading-relaxed">
+                <div class="p-3 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-lg space-y-1">
+                    <p class="font-bold flex items-center gap-1"><i class="fa-solid fa-circle-info"></i> 設定說明：</p>
+                    <p>只需 3 步驟，即可將點名資料直接發送並自動記錄至您的 Google 試算表中：</p>
+                </div>
+
+                <ol class="list-decimal list-inside space-y-2 font-medium text-slate-700 bg-slate-50 p-3 rounded-lg border border-slate-200">
+                    <li>打開您的 Google 試算表，點擊選單 <span class="bg-white px-1.5 py-0.5 border rounded">擴充功能</span> ➔ <span class="bg-white px-1.5 py-0.5 border rounded">Apps Script</span>。</li>
+                    <li>將裡面的程式碼全部刪除，貼上下方專用程式碼並存檔。</li>
+                    <li>點擊右上角 <span class="bg-emerald-600 text-white px-1.5 py-0.5 rounded">部署</span> ➔ <span class="bg-white px-1.5 py-0.5 border rounded">新建部署</span>（類型選「Web 應用程式」，存取權限設為「任何人」），複製網址貼至最下方！</li>
+                </ol>
+
+                <div class="space-y-1">
+                    <div class="flex justify-between items-center">
+                        <span class="font-semibold text-slate-700">Google Apps Script 專用程式碼：</span>
+                        <button onclick="copyGasCode()" class="text-emerald-700 hover:underline font-bold text-[11px] flex items-center gap-1">
+                            <i class="fa-regular fa-copy"></i> 複製程式碼
+                        </button>
+                    </div>
+                    <pre id="gasCodeText" class="p-3 bg-slate-900 text-emerald-400 font-mono text-[11px] rounded-lg overflow-x-auto select-all">
+function doPost(e) {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  var data = JSON.parse(e.postData.contents);
+  
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(["點名日期", "總人數", "出席人數", "缺席人數", "請假人數", "出席率", "缺席學生名單", "請假學生名單", "紀錄時間"]);
+  }
+  
+  sheet.appendRow([
+    data.date,
+    data.total,
+    data.present,
+    data.absent,
+    data.excused,
+    data.rate + "%",
+    data.absentList.join(", "),
+    data.excusedList.join(", "),
+    new Date().toLocaleString("zh-TW", { timeZone: "Asia/Taipei" })
+  ]);
+  
+  return ContentService.createTextOutput(JSON.stringify({ status: "success" }))
+    .setMimeType(ContentService.MimeType.JSON);
+}</pre>
+                </div>
+
+                <div class="space-y-1 pt-2">
+                    <label class="block font-bold text-slate-700">Web 應用程式網址 (Apps Script Webhook URL)：</label>
+                    <input type="url" id="gasWebhookUrl" placeholder="https://script.google.com/macros/s/.../exec" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-mono focus:ring-2 focus:ring-emerald-500 outline-none">
+                </div>
+            </div>
+
+            <div class="p-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-2">
+                <button onclick="closeGasModal()" class="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-medium rounded-lg transition">
+                    取消
+                </button>
+                <button onclick="saveGasWebhook()" class="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow transition">
+                    儲存設定
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal 4: Attendance History Modal -->
+    <div id="historyModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white max-w-2xl w-full rounded-2xl shadow-xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="p-4 bg-slate-800 text-white flex items-center justify-between">
+                <h3 class="font-bold text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-clock-rotate-left text-slate-300"></i>
+                    點名紀錄歷史 Log
+                </h3>
+                <button onclick="closeHistoryModal()" class="text-slate-400 hover:text-white">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="p-5 overflow-y-auto space-y-3 text-xs flex-1">
+                <div id="historyLogList" class="space-y-2">
+                    <!-- History entries rendered dynamically -->
+                </div>
+            </div>
+
+            <div class="p-4 bg-slate-50 border-t border-slate-200 flex justify-between items-center">
+                <button onclick="clearHistoryLogs()" class="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-semibold rounded-lg transition">
+                    清空歷史紀錄
+                </button>
+                <button onclick="closeHistoryModal()" class="px-4 py-1.5 bg-slate-700 hover:bg-slate-800 text-white text-xs font-bold rounded-lg transition">
+                    關閉
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Floating Toast Notification -->
+    <div id="toast" class="fixed bottom-5 right-5 bg-slate-900 text-white px-4 py-2.5 rounded-xl shadow-2xl z-50 text-xs font-semibold flex items-center gap-2 border border-slate-700 transform translate-y-20 opacity-0 transition-all duration-300">
+        <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400"></i>
+        <span id="toastMessage">提示訊息</span>
+    </div>
+
+    <script>
+        // --- DATA & STATE MANAGEMENT ---
+        const TOTAL_SEATS_CAPACITY = 40; // 5 rows x 2 clusters x 4 seats
+        let isEditMode = false;
+        let activeEditIndex = null;
+
+        // Seat status: 'present' (出席), 'absent' (缺席), 'excused' (請假/遲到)
+        // Seats Array: 40 seats
+        let seats = [];
+
+        // Sample 26 students template list
+        const default26Students = Array.from({ length: 26 }, (_, i) => {
+            const num = (i + 1).toString().padStart(2, '0');
+            return {
+                studentId: `114${num}`,
+                name: `學生${num}`
+            };
+        });
+
+        // Initialize Seats Data
+        function initSeats() {
+            const savedSeats = localStorage.getItem('classroom_seats_26');
+            if (savedSeats) {
+                try {
+                    seats = JSON.parse(savedSeats);
+                    return;
+                } catch(e) {
+                    console.error("Error loading saved seats:", e);
+                }
+            }
+
+            // Default initial placement: 26 students distributed across 40 seats
+            seats = [];
+            let studentCounter = 0;
+
+            for (let i = 0; i < TOTAL_SEATS_CAPACITY; i++) {
+                const row = Math.floor(i / 8) + 1;
+                const cluster = (i % 8 < 4) ? 'left' : 'right';
+                const posInCluster = i % 4; // 0: TL, 1: TR, 2: BL, 3: BR
+
+                let student = null;
+                // Place 26 students (fill left & right clusters naturally, leaving some empty seats at bottom/corners)
+                if (studentCounter < default26Students.length) {
+                    student = default26Students[studentCounter++];
+                }
+
+                seats.push({
+                    index: i,
+                    row: row,
+                    cluster: cluster,
+                    pos: posInCluster,
+                    studentId: student ? student.studentId : '',
+                    name: student ? student.name : '',
+                    status: 'present'
+                });
+            }
+        }
+
+        function saveSeatsToStorage() {
+            localStorage.setItem('classroom_seats_26', JSON.stringify(seats));
+        }
+
+        // --- DOM RENDERERS ---
+
+        function renderGrid() {
+            const gridContainer = document.getElementById('seatingGrid');
+            gridContainer.innerHTML = '';
+
+            // Group by 5 Rows
+            for (let r = 1; r <= 5; r++) {
+                const rowDiv = document.createElement('div');
+                rowDiv.className = 'grid grid-cols-1 md:grid-cols-2 gap-4 items-center';
+
+                // Left Cluster & Right Cluster
+                const leftClusterSeats = seats.filter(s => s.row === r && s.cluster === 'left');
+                const rightClusterSeats = seats.filter(s => s.row === r && s.cluster === 'right');
+
+                rowDiv.appendChild(createDeskClusterElement(`第 ${r} 排 ‧ 左桌島`, leftClusterSeats));
+                rowDiv.appendChild(createDeskClusterElement(`第 ${r} 排 ‧ 右桌島`, rightClusterSeats));
+
+                gridContainer.appendChild(rowDiv);
+            }
+        }
+
+        function createDeskClusterElement(title, clusterSeats) {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'desk-cluster p-3 rounded-xl shadow-sm border border-slate-200 space-y-2';
+
+            const header = document.createElement('div');
+            header.className = 'text-[11px] font-bold text-slate-500 uppercase tracking-wider flex justify-between items-center border-b border-slate-200 pb-1.5';
+            header.innerHTML = `<span><i class="fa-solid fa-border-all text-slate-400 mr-1"></i>${title}</span>`;
+            wrapper.appendChild(header);
+
+            const grid2x2 = document.createElement('div');
+            grid2x2.className = 'grid grid-cols-2 gap-2.5';
+
+            clusterSeats.forEach(seat => {
+                const seatCard = document.createElement('div');
+                seatCard.setAttribute('data-index', seat.index);
+
+                const isEmpty = !seat.name && !seat.studentId;
+
+                let cardClasses = 'seat-card rounded-lg p-2.5 flex flex-col justify-between min-h-[72px] cursor-pointer border relative ';
+
+                if (isEditMode) {
+                    cardClasses += 'border-dashed border-amber-400 bg-amber-50/40 hover:bg-amber-100/60 ';
+                } else if (isEmpty) {
+                    cardClasses += 'border-slate-200 bg-slate-50 text-slate-400 opacity-60 hover:opacity-100 ';
+                } else if (seat.status === 'present') {
+                    cardClasses += 'border-emerald-300 bg-emerald-50/90 text-emerald-950 shadow-sm hover:border-emerald-400 ';
+                } else if (seat.status === 'absent') {
+                    cardClasses += 'border-rose-400 bg-rose-50 text-rose-950 shadow-sm hover:border-rose-500 ';
+                } else if (seat.status === 'excused') {
+                    cardClasses += 'border-amber-300 bg-amber-50 text-amber-950 shadow-sm hover:border-amber-400 ';
+                }
+
+                seatCard.className = cardClasses;
+                seatCard.onclick = () => handleSeatClick(seat.index);
+
+                if (isEmpty) {
+                    seatCard.innerHTML = `
+                        <div class="text-center py-2 text-slate-400">
+                            <i class="fa-solid fa-chair text-xs mb-0.5 opacity-40"></i>
+                            <p class="text-[11px] font-medium">空位</p>
+                        </div>
+                    `;
+                } else {
+                    let statusBadge = '';
+                    if (seat.status === 'present') {
+                        statusBadge = '<span class="text-[10px] px-1.5 py-0.2 bg-emerald-600 text-white rounded font-bold flex items-center gap-0.5"><i class="fa-solid fa-check text-[9px]"></i> 出席</span>';
+                    } else if (seat.status === 'absent') {
+                        statusBadge = '<span class="text-[10px] px-1.5 py-0.2 bg-rose-600 text-white rounded font-bold flex items-center gap-0.5"><i class="fa-solid fa-xmark text-[9px]"></i> 缺席</span>';
+                    } else if (seat.status === 'excused') {
+                        statusBadge = '<span class="text-[10px] px-1.5 py-0.2 bg-amber-600 text-white rounded font-bold flex items-center gap-0.5"><i class="fa-solid fa-clock text-[9px]"></i> 請假</span>';
+                    }
+
+                    if (isEditMode) {
+                        statusBadge = '<span class="text-[10px] px-1 py-0.2 bg-amber-500 text-slate-900 rounded font-bold"><i class="fa-solid fa-pen"></i> 編輯</span>';
+                    }
+
+                    seatCard.innerHTML = `
+                        <div class="flex justify-between items-start">
+                            <span class="font-mono text-[11px] font-semibold text-slate-500">${seat.studentId || ''}</span>
+                            ${statusBadge}
+                        </div>
+                        <div class="mt-1 flex justify-between items-baseline">
+                            <span class="font-bold text-sm tracking-tight text-slate-800">${seat.name}</span>
+                        </div>
+                    `;
+                }
+
+                grid2x2.appendChild(seatCard);
+            });
+
+            wrapper.appendChild(grid2x2);
+            return wrapper;
+        }
+
+        function renderStats() {
+            const activeSeats = seats.filter(s => s.name || s.studentId);
+            const total = activeSeats.length;
+            const present = activeSeats.filter(s => s.status === 'present').length;
+            const absent = activeSeats.filter(s => s.status === 'absent').length;
+            const excused = activeSeats.filter(s => s.status === 'excused').length;
+
+            const rate = total > 0 ? ((present / total) * 100).toFixed(1) : '100.0';
+
+            document.getElementById('totalCount').innerText = total;
+            document.getElementById('presentCount').innerText = present;
+            document.getElementById('absentCount').innerText = absent;
+            document.getElementById('excusedCount').innerText = excused;
+            document.getElementById('rateBadge').innerText = `出席率 ${rate}%`;
+
+            renderAbsentList(activeSeats);
+        }
+
+        function renderAbsentList(activeSeats) {
+            const container = document.getElementById('absentListContainer');
+            container.innerHTML = '';
+
+            const absents = activeSeats.filter(s => s.status === 'absent' || s.status === 'excused');
+            document.getElementById('absentBadgeCount').innerText = `${absents.length} 人`;
+
+            if (absents.length === 0) {
+                container.innerHTML = `
+                    <div class="p-6 text-center text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                        <i class="fa-solid fa-circle-check text-emerald-500 text-2xl mb-2 block"></i>
+                        <p class="text-xs font-semibold text-slate-600">今日目前全員出席！</p>
+                        <p class="text-[11px] text-slate-400 mt-0.5">點擊學生座位可調整出缺席紀錄</p>
+                    </div>
+                `;
+                return;
+            }
+
+            absents.forEach(s => {
+                const isAbsent = s.status === 'absent';
+                const item = document.createElement('div');
+                item.className = `p-2.5 rounded-lg border flex items-center justify-between text-xs font-medium ${
+                    isAbsent ? 'bg-rose-50 border-rose-200 text-rose-900' : 'bg-amber-50 border-amber-200 text-amber-900'
+                }`;
+
+                item.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <span class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white ${
+                            isAbsent ? 'bg-rose-500' : 'bg-amber-500'
+                        }">
+                            ${isAbsent ? '缺' : '假'}
+                        </span>
+                        <div>
+                            <p class="font-bold text-slate-800">${s.name} <span class="font-mono text-[11px] text-slate-500 font-normal">(${s.studentId || '無座號'})</span></p>
+                            <p class="text-[10px] text-slate-400">第 ${s.row} 排 ${s.cluster === 'left' ? '左島' : '右島'}</p>
+                        </div>
+                    </div>
+                    <button onclick="toggleSingleSeatStatus(${s.index})" class="px-2 py-1 bg-white hover:bg-slate-100 text-slate-600 rounded border text-[10px] shadow-sm transition">
+                        改為出席
+                    </button>
+                `;
+
+                container.appendChild(item);
+            });
+        }
+
+        // --- INTERACTION LOGIC ---
+
+        function handleSeatClick(index) {
+            if (isEditMode) {
+                openSingleSeatModal(index);
+            } else {
+                toggleSingleSeatStatus(index);
+            }
+        }
+
+        function toggleSingleSeatStatus(index) {
+            const seat = seats[index];
+            if (!seat.name && !seat.studentId) return; // empty desk
+
+            if (seat.status === 'present') {
+                seat.status = 'absent';
+            } else if (seat.status === 'absent') {
+                seat.status = 'excused';
+            } else {
+                seat.status = 'present';
+            }
+
+            saveSeatsToStorage();
+            renderGrid();
+            renderStats();
+        }
+
+        function markAllPresent() {
+            seats.forEach(s => {
+                if (s.name || s.studentId) s.status = 'present';
+            });
+            saveSeatsToStorage();
+            renderGrid();
+            renderStats();
+            showToast('已將所有位子學生標記為「出席」', 'success');
+        }
+
+        function resetAllStatus() {
+            seats.forEach(s => {
+                if (s.name || s.studentId) s.status = 'present';
+            });
+            saveSeatsToStorage();
+            renderGrid();
+            renderStats();
+            showToast('已重設出缺席狀態', 'info');
+        }
+
+        function toggleEditMode() {
+            isEditMode = !isEditMode;
+            const badge = document.getElementById('currentModeBadge');
+            const btnText = document.getElementById('modeBtnText');
+            const notice = document.getElementById('editModeNotice');
+
+            if (isEditMode) {
+                badge.innerText = '編輯模式';
+                badge.className = 'text-xs px-2 py-0.5 bg-rose-500 text-white rounded font-bold animate-pulse';
+                btnText.innerText = '完成編輯 (回到點名)';
+                notice.classList.remove('hidden');
+                document.body.classList.add('edit-mode-active');
+            } else {
+                badge.innerText = '點名模式';
+                badge.className = 'text-xs px-2 py-0.5 bg-amber-500 text-slate-900 rounded font-bold';
+                btnText.innerText = '編輯名單 / 座位';
+                notice.classList.add('hidden');
+                document.body.classList.remove('edit-mode-active');
+            }
+
+            renderGrid();
+        }
+
+        // --- SINGLE SEAT MODAL ---
+
+        function openSingleSeatModal(index) {
+            activeEditIndex = index;
+            const seat = seats[index];
+            document.getElementById('seatPositionTag').innerText = `(第 ${seat.row} 排 ‧ ${seat.cluster === 'left' ? '左桌島' : '右桌島'})`;
+            document.getElementById('editSeatCode').value = seat.studentId || '';
+            document.getElementById('editSeatName').value = seat.name || '';
+            document.getElementById('singleSeatModal').classList.remove('hidden');
+        }
+
+        function closeSingleSeatModal() {
+            document.getElementById('singleSeatModal').classList.add('hidden');
+            activeEditIndex = null;
+        }
+
+        function saveSingleSeat() {
+            if (activeEditIndex === null) return;
+            const code = document.getElementById('editSeatCode').value.trim();
+            const name = document.getElementById('editSeatName').value.trim();
+
+            seats[activeEditIndex].studentId = code;
+            seats[activeEditIndex].name = name;
+            
+            saveSeatsToStorage();
+            renderGrid();
+            renderStats();
+            closeSingleSeatModal();
+            showToast('座位資料已更新', 'success');
+        }
+
+        function clearCurrentSeat() {
+            if (activeEditIndex === null) return;
+            seats[activeEditIndex].studentId = '';
+            seats[activeEditIndex].name = '';
+            seats[activeEditIndex].status = 'present';
+            
+            saveSeatsToStorage();
+            renderGrid();
+            renderStats();
+            closeSingleSeatModal();
+            showToast('已清空此座位', 'info');
+        }
+
+        // --- BATCH IMPORT MODAL ---
+
+        function openBatchModal() {
+            document.getElementById('batchModal').classList.remove('hidden');
+        }
+
+        function closeBatchModal() {
+            document.getElementById('batchModal').classList.add('hidden');
+        }
+
+        function load26TemplateText() {
+            const template = default26Students.map(s => `${s.studentId} ${s.name}`).join('\n');
+            document.getElementById('batchInputText').value = template;
+        }
+
+        function applyBatchImport() {
+            const rawText = document.getElementById('batchInputText').value.trim();
+            if (!rawText) {
+                showToast('請先貼上學生名單', 'warning');
+                return;
+            }
+
+            const lines = rawText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+            
+            // Clear current seats
+            seats.forEach(s => {
+                s.studentId = '';
+                s.name = '';
+                s.status = 'present';
+            });
+
+            // Fill sequentially
+            lines.forEach((line, idx) => {
+                if (idx < TOTAL_SEATS_CAPACITY) {
+                    const parts = line.split(/\s+/);
+                    if (parts.length >= 2) {
+                        seats[idx].studentId = parts[0];
+                        seats[idx].name = parts.slice(1).join(' ');
+                    } else {
+                        seats[idx].studentId = (idx + 1).toString().padStart(2, '0');
+                        seats[idx].name = parts[0];
+                    }
+                }
+            });
+
+            saveSeatsToStorage();
+            renderGrid();
+            renderStats();
+            closeBatchModal();
+            showToast(`已成功匯入 ${lines.length} 位學生座位資料`, 'success');
+        }
+
+        function fill26SampleSeats() {
+            seats.forEach(s => {
+                s.studentId = '';
+                s.name = '';
+                s.status = 'present';
+            });
+
+            default26Students.forEach((st, idx) => {
+                if (idx < TOTAL_SEATS_CAPACITY) {
+                    seats[idx].studentId = st.studentId;
+                    seats[idx].name = st.name;
+                }
+            });
+
+            saveSeatsToStorage();
+            renderGrid();
+            renderStats();
+            showToast('已載入 26 人範例名單', 'success');
+        }
+
+        function clearAllSeats() {
+            if (confirm('確定要清空全班所有座位名單嗎？')) {
+                seats.forEach(s => {
+                    s.studentId = '';
+                    s.name = '';
+                    s.status = 'present';
+                });
+                saveSeatsToStorage();
+                renderGrid();
+                renderStats();
+                closeBatchModal();
+                showToast('全班座位已清空', 'info');
+            }
+        }
+
+        // --- GAS & SUMMARY LOGIC ---
+
+        function openGasModal() {
+            const savedUrl = localStorage.getItem('classroom_gas_url') || '';
+            document.getElementById('gasWebhookUrl').value = savedUrl;
+            document.getElementById('gasModal').classList.remove('hidden');
+        }
+
+        function closeGasModal() {
+            document.getElementById('gasModal').classList.add('hidden');
+        }
+
+        function saveGasWebhook() {
+            const url = document.getElementById('gasWebhookUrl').value.trim();
+            localStorage.setItem('classroom_gas_url', url);
+            closeGasModal();
+            showToast('Google 試算表 Webhook 網址已儲存', 'success');
+        }
+
+        function copyGasCode() {
+            const code = document.getElementById('gasCodeText').innerText;
+            navigator.clipboard.writeText(code).then(() => {
+                showToast('已複製 GAS 專用程式碼！', 'success');
+            });
+        }
+
+        function copyAbsentSummary() {
+            const dateVal = document.getElementById('attendanceDate').value || new Date().toISOString().split('T')[0];
+            const activeSeats = seats.filter(s => s.name || s.studentId);
+            const total = activeSeats.length;
+            const present = activeSeats.filter(s => s.status === 'present').length;
+            const absents = activeSeats.filter(s => s.status === 'absent');
+            const excused = activeSeats.filter(s => s.status === 'excused');
+            const rate = total > 0 ? ((present / total) * 100).toFixed(1) : '100.0';
+
+            let summary = `【${dateVal} 班級點名紀錄】\n`;
+            summary += `全班人數：${total} 人 | 出席：${present} 人 | 出席率：${rate}%\n`;
+            summary += `----------------------------------------\n`;
+            
+            if (absents.length > 0) {
+                summary += `❌ 缺席 (${absents.length}人)：\n`;
+                absents.forEach(s => {
+                    summary += `   • [${s.studentId || '無座號'}] ${s.name}\n`;
+                });
+            } else {
+                summary += `❌ 缺席：無\n`;
+            }
+
+            if (excused.length > 0) {
+                summary += `⚠️ 請假/遲到 (${excused.length}人)：\n`;
+                excused.forEach(s => {
+                    summary += `   • [${s.studentId || '無座號'}] ${s.name}\n`;
+                });
+            } else {
+                summary += `⚠️ 請假/遲到：無\n`;
+            }
+
+            navigator.clipboard.writeText(summary).then(() => {
+                showToast('已複製點名文字摘要至剪貼簿！', 'success');
+            });
+        }
+
+        async function submitAttendance() {
+            const dateVal = document.getElementById('attendanceDate').value || new Date().toISOString().split('T')[0];
+            const activeSeats = seats.filter(s => s.name || s.studentId);
+            const total = activeSeats.length;
+            const present = activeSeats.filter(s => s.status === 'present').length;
+            const absents = activeSeats.filter(s => s.status === 'absent');
+            const excused = activeSeats.filter(s => s.status === 'excused');
+            const rate = total > 0 ? ((present / total) * 100).toFixed(1) : '100.0';
+
+            const payload = {
+                date: dateVal,
+                total: total,
+                present: present,
+                absent: absents.length,
+                excused: excused.length,
+                rate: rate,
+                absentList: absents.map(s => `[${s.studentId}] ${s.name}`),
+                excusedList: excused.map(s => `[${s.studentId}] ${s.name}`),
+                timestamp: new Date().toLocaleString("zh-TW", { timeZone: "Asia/Taipei" })
+            };
+
+            // Save to Local History
+            saveHistoryLog(payload);
+
+            const webhookUrl = localStorage.getItem('classroom_gas_url');
+            if (!webhookUrl) {
+                showToast('紀錄已儲存至歷史紀錄！(未設定 Google 試算表 Webhook)', 'info');
+                return;
+            }
+
+            try {
+                showToast('正在發送至 Google 試算表...', 'info');
+                await fetch(webhookUrl, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                showToast('點名紀錄已成功同步至 Google 試算表！', 'success');
+            } catch (err) {
+                console.error(err);
+                showToast('發送至試算表時發生錯誤，但紀錄已備份於本地', 'warning');
+            }
+        }
+
+        // --- HISTORY LOGS ---
+
+        function saveHistoryLog(logItem) {
+            let logs = JSON.parse(localStorage.getItem('classroom_history_logs') || '[]');
+            logs.unshift(logItem);
+            if (logs.length > 50) logs = logs.slice(0, 50); // keep last 50
+            localStorage.setItem('classroom_history_logs', JSON.stringify(logs));
+        }
+
+        function openHistoryModal() {
+            renderHistoryLogs();
+            document.getElementById('historyModal').classList.remove('hidden');
+        }
+
+        function closeHistoryModal() {
+            document.getElementById('historyModal').classList.add('hidden');
+        }
+
+        function renderHistoryLogs() {
+            const container = document.getElementById('historyLogList');
+            const logs = JSON.parse(localStorage.getItem('classroom_history_logs') || '[]');
+            
+            if (logs.length === 0) {
+                container.innerHTML = `<p class="text-center text-slate-400 py-6">目前尚無送出的點名紀錄。</p>`;
+                return;
+            }
+
+            container.innerHTML = logs.map(l => `
+                <div class="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-1">
+                    <div class="flex justify-between items-center font-bold text-slate-700">
+                        <span>📅 ${l.date}</span>
+                        <span class="text-xs font-semibold px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded">出席率 ${l.rate}%</span>
+                    </div>
+                    <div class="text-[11px] text-slate-500">
+                        總人數: ${l.total} | 出席: ${l.present} | 缺席: ${l.absent} | 請假: ${l.excused}
+                    </div>
+                    ${l.absentList.length ? `<div class="text-[11px] text-rose-600 font-medium">缺席: ${l.absentList.join(', ')}</div>` : ''}
+                    ${l.excusedList.length ? `<div class="text-[11px] text-amber-600 font-medium">請假: ${l.excusedList.join(', ')}</div>` : ''}
+                    <div class="text-[10px] text-slate-400 text-right">紀錄時間: ${l.timestamp}</div>
+                </div>
+            `).join('');
+        }
+
+        function clearHistoryLogs() {
+            if (confirm('確定要清空所有的點名歷史紀錄嗎？')) {
+                localStorage.removeItem('classroom_history_logs');
+                renderHistoryLogs();
+                showToast('歷史紀錄已清空', 'info');
+            }
+        }
+
+        // --- UTILS ---
+
+        function resetTodayDate() {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('attendanceDate').value = today;
+            updateDayOfWeek();
+        }
+
+        function updateDayOfWeek() {
+            const dateStr = document.getElementById('attendanceDate').value;
+            if (!dateStr) return;
+            const days = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+            const d = new Date(dateStr);
+            document.getElementById('dayOfWeekTag').innerText = days[d.getDay()];
+        }
+
+        function showToast(msg, type = 'info') {
+            const toast = document.getElementById('toast');
+            const icon = document.getElementById('toastIcon');
+            const message = document.getElementById('toastMessage');
+
+            message.innerText = msg;
+            
+            if (type === 'success') {
+                icon.className = 'fa-solid fa-circle-check text-emerald-400';
+            } else if (type === 'warning') {
+                icon.className = 'fa-solid fa-triangle-exclamation text-rose-400';
+            } else {
+                icon.className = 'fa-solid fa-circle-info text-sky-400';
+            }
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        // --- INIT ON LOAD ---
+        document.addEventListener('DOMContentLoaded', () => {
+            resetTodayDate();
+            document.getElementById('attendanceDate').addEventListener('change', updateDayOfWeek);
+            initSeats();
+            renderGrid();
+            renderStats();
+        });
+    </script>
+</body>
+</html>
