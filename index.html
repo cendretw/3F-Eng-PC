@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>班級互動點名座位表 (混班原班級色彩版)</title>
+    <title>班級互動點名座位表 (學生資料試算表連動版)</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome Icons -->
@@ -64,29 +64,47 @@
     <header class="bg-slate-800 text-white shadow-md sticky top-0 z-30 border-b border-slate-700">
         <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
             <div class="flex items-center space-x-3">
-                <div class="p-2 bg-slate-700 rounded-lg shadow-inner text-amber-400">
-                    <i class="fa-solid fa-palette text-xl"></i>
+                <div class="p-2 bg-slate-700 rounded-lg shadow-inner text-emerald-400">
+                    <i class="fa-solid fa-file-excel text-xl"></i>
                 </div>
                 <div>
                     <div class="flex items-center gap-2">
                         <h1 class="font-bold text-lg leading-tight">班級互動點名座位表</h1>
                         <span id="currentModeBadge" class="text-xs px-2 py-0.5 bg-amber-500 text-slate-900 rounded font-bold">點名模式</span>
                     </div>
-                    <p class="text-xs text-slate-300">真實教室佈局 (5排桌島) ‧ 支援混班/跨班原班別色彩視覺辨識與試算表同步</p>
+                    <p class="text-xs text-slate-300">真實教室佈局 ‧ 完美對應「學生資料」試算表「高二班級」與「高三班級」頁籤</p>
                 </div>
             </div>
             
             <!-- Class Switcher & Navigation Tools -->
             <div class="flex items-center flex-wrap gap-2">
-                <!-- Class Switcher Select -->
+                <!-- Class Switcher Select matching User's exact sheet tabs: 高二班級 & 高三班級 -->
                 <div class="flex items-center bg-slate-700 px-2.5 py-1 rounded-lg border border-slate-600 gap-1.5 shadow-inner">
                     <i class="fa-solid fa-graduation-cap text-amber-400 text-xs"></i>
-                    <span class="text-xs font-semibold text-slate-300">課程班級：</span>
+                    <span class="text-xs font-semibold text-slate-300">選擇班級：</span>
                     <select id="classSelector" onchange="switchClass(this.value)" class="bg-slate-900 text-amber-300 font-bold text-xs px-2 py-1 rounded outline-none cursor-pointer border border-slate-600">
-                        <option value="高二混班選修">高二混班選修</option>
-                        <option value="高三混班選修">高三混班選修</option>
+                        <option value="高二班級">高二班級</option>
+                        <option value="高三班級">高三班級</option>
                     </select>
                 </div>
+
+                <!-- Sync from Google Sheet Quick Button -->
+                <button onclick="syncRosterFromGoogleSheet()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg transition shadow flex items-center gap-1.5 border border-emerald-500" title="一鍵同步「學生資料」試算表中本班級名單">
+                    <i class="fa-solid fa-rotate text-xs"></i>
+                    <span>從試算表同步名單</span>
+                </button>
+
+                <!-- Backup & Restore Quick Tools -->
+                <button onclick="exportBackupJSON()" class="px-2.5 py-1.5 bg-slate-700 hover:bg-slate-600 text-amber-300 text-xs font-bold rounded-lg transition shadow flex items-center gap-1.5 border border-slate-600" title="備份名單">
+                    <i class="fa-solid fa-floppy-disk"></i>
+                    <span>備份</span>
+                </button>
+
+                <button onclick="triggerImportJSON()" class="px-2.5 py-1.5 bg-slate-700 hover:bg-slate-600 text-sky-300 text-xs font-bold rounded-lg transition shadow flex items-center gap-1.5 border border-slate-600" title="還原備份">
+                    <i class="fa-solid fa-file-import"></i>
+                    <span>還原</span>
+                </button>
+                <input type="file" id="backupFileInput" accept=".json" onchange="importBackupJSON(event)" class="hidden">
 
                 <!-- Mixed Class Color Toggle -->
                 <button id="toggleClassColorBtn" onclick="toggleClassColoring()" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg transition shadow flex items-center gap-1.5 border border-indigo-500">
@@ -97,22 +115,22 @@
                 <!-- Mode Switch Button -->
                 <button id="toggleModeBtn" onclick="toggleEditMode()" class="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-900 text-xs font-bold rounded-lg transition shadow flex items-center gap-1.5">
                     <i class="fa-solid fa-pen-to-square"></i>
-                    <span id="modeBtnText">編輯名單 / 座位</span>
+                    <span id="modeBtnText">編輯座位</span>
                 </button>
 
                 <button onclick="openBatchModal()" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-100 text-xs font-medium rounded-lg transition shadow flex items-center gap-1.5 border border-slate-600">
                     <i class="fa-solid fa-users-gear text-sky-400"></i>
-                    <span>批次匯入</span>
+                    <span>貼上匯入</span>
                 </button>
 
                 <button onclick="openGasModal()" class="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-medium rounded-lg transition shadow flex items-center gap-1.5">
                     <i class="fa-solid fa-file-excel"></i>
-                    <span>試算表連動</span>
+                    <span>試算表設定</span>
                 </button>
 
                 <button onclick="openHistoryModal()" class="px-3 py-1.5 bg-slate-900 hover:bg-slate-950 text-slate-200 text-xs font-medium rounded-lg transition shadow flex items-center gap-1.5 border border-slate-700">
                     <i class="fa-solid fa-clock-rotate-left"></i>
-                    <span>紀錄與匯出</span>
+                    <span>紀錄匯出</span>
                 </button>
             </div>
         </div>
@@ -130,7 +148,7 @@
                         <i class="fa-regular fa-calendar-days text-indigo-500"></i> 點名日期
                     </label>
                     <div class="flex items-center gap-1.5">
-                        <span id="activeClassNameTag" class="text-xs font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">高二混班選修</span>
+                        <span id="activeClassNameTag" class="text-xs font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">高二班級</span>
                         <span id="dayOfWeekTag" class="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded"></span>
                     </div>
                 </div>
@@ -159,13 +177,13 @@
             <!-- Stats KPI Cards -->
             <div class="lg:col-span-7 bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
                 <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 flex items-center justify-between">
-                    <span><i class="fa-solid fa-chart-pie text-indigo-500 mr-1"></i> 即時出席統計 (<span id="statsClassLabel">高二混班選修</span>)</span>
+                    <span><i class="fa-solid fa-chart-pie text-indigo-500 mr-1"></i> 即時出席統計 (<span id="statsClassLabel">高二班級</span>)</span>
                     <span id="rateBadge" class="text-xs px-2.5 py-0.5 bg-emerald-100 text-emerald-800 rounded-full font-bold">出席率 100%</span>
                 </div>
 
                 <div class="grid grid-cols-4 gap-2 text-center">
                     <div class="p-2.5 bg-slate-50 rounded-lg border border-slate-100">
-                        <p class="text-xs text-slate-500">混班學生數</p>
+                        <p class="text-xs text-slate-500">班級學生數</p>
                         <p id="totalCount" class="text-xl font-bold text-slate-800">26</p>
                     </div>
                     <div class="p-2.5 bg-emerald-50 rounded-lg border border-emerald-100">
@@ -189,8 +207,8 @@
                         <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-rose-500 inline-block"></span> 缺席</span>
                         <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-amber-500 inline-block"></span> 請假/遲到</span>
                     </div>
-                    <div class="text-[11px] text-indigo-600 font-medium flex items-center gap-1">
-                        <i class="fa-solid fa-circle-info"></i> 點擊座位切換出缺席；右上角可開啟「混班原班別色彩」
+                    <div class="text-[11px] text-emerald-700 font-bold flex items-center gap-1">
+                        <i class="fa-solid fa-cloud-arrow-down"></i> 完全對應您的「學生資料」試算表「高二班級」與「高三班級」頁籤
                     </div>
                 </div>
             </div>
@@ -226,8 +244,11 @@
                 <div id="editModeNotice" class="hidden p-2.5 bg-amber-50 border border-amber-300 text-amber-900 text-xs rounded-lg flex justify-between items-center">
                     <span><i class="fa-solid fa-circle-info text-amber-600 mr-1"></i> <b>目前為【編輯模式】</b>：點擊任一座位可修改學生姓名、座號與原班級。</span>
                     <div class="flex gap-2">
-                        <button onclick="fillSampleSeatsForCurrentClass()" class="px-2.5 py-1 bg-amber-200 hover:bg-amber-300 text-amber-900 font-bold rounded text-[11px] transition">
-                            載入混班範例名單
+                        <button onclick="restoreAutoBackup()" class="px-2.5 py-1 bg-amber-200 hover:bg-amber-300 text-amber-900 font-bold rounded text-[11px] transition">
+                            ↩️ 復原上次名單
+                        </button>
+                        <button onclick="fillSampleSeatsForCurrentClass()" class="px-2.5 py-1 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold rounded text-[11px] transition">
+                            重置範例名單
                         </button>
                     </div>
                 </div>
@@ -324,7 +345,7 @@
             <div class="p-4 bg-slate-800 text-white flex items-center justify-between">
                 <h3 class="font-bold text-sm flex items-center gap-2">
                     <i class="fa-solid fa-users-gear text-sky-400"></i>
-                    批次匯入 <span id="batchModalClassLabel" class="text-amber-400 font-bold">混班選修</span> 學生名單
+                    批次貼上匯入 <span id="batchModalClassLabel" class="text-amber-400 font-bold">高二班級</span> 學生名單
                 </h3>
                 <button onclick="closeBatchModal()" class="text-slate-400 hover:text-white">
                     <i class="fa-solid fa-xmark"></i>
@@ -332,20 +353,28 @@
             </div>
 
             <div class="p-5 overflow-y-auto space-y-3 text-xs">
-                <p class="text-slate-600">請貼上您的混班名單，每行一位學生（支援 <code>原班級 座號 姓名</code> 或 <code>座號(如20101) 姓名</code>）：</p>
+                <div class="p-3 bg-sky-50 border border-sky-200 rounded-lg text-sky-900">
+                    💡 <b>提示：可以直接從「學生資料」試算表中框選複製欄位並貼在下方！</b><br>
+                    支援 <code>原班級 座號 姓名</code> 或 <code>座號 姓名</code>（每行一位）。
+                </div>
                 
                 <div class="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-500 text-[11px] font-mono leading-tight flex justify-between items-center">
                     <div>
                         格式範例 1：201班 01 陳大明<br>
-                        格式範例 2：20101 陳大明（自動辨識為 201班）<br>
+                        格式範例 2：20101 陳大明（自動辨識 201班）<br>
                         格式範例 3：202班 05 林小華
                     </div>
-                    <button onclick="loadTemplateTextForCurrentClass()" class="px-2.5 py-1.5 bg-sky-100 hover:bg-sky-200 text-sky-800 font-bold rounded transition">
-                        填入混班範例格式
-                    </button>
+                    <div class="flex gap-1.5">
+                        <button onclick="restoreAutoBackup()" class="px-2 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold rounded transition">
+                            ↩️ 復原名單
+                        </button>
+                        <button onclick="loadTemplateTextForCurrentClass()" class="px-2 py-1 bg-sky-100 hover:bg-sky-200 text-sky-800 font-bold rounded transition">
+                            填入範例
+                        </button>
+                    </div>
                 </div>
 
-                <textarea id="batchInputText" rows="10" placeholder="在此貼上混班學生名單..." class="w-full p-3 border border-slate-300 rounded-lg font-mono text-xs focus:ring-2 focus:ring-sky-500 outline-none leading-relaxed"></textarea>
+                <textarea id="batchInputText" rows="10" placeholder="在此直接 Ctrl+V 貼上「學生資料」試算表中的學生名單..." class="w-full p-3 border border-slate-300 rounded-lg font-mono text-xs focus:ring-2 focus:ring-sky-500 outline-none leading-relaxed"></textarea>
             </div>
 
             <div class="p-4 bg-slate-50 border-t border-slate-200 flex justify-between items-center">
@@ -370,7 +399,7 @@
             <div class="p-4 bg-emerald-800 text-white flex items-center justify-between">
                 <div class="flex items-center space-x-2">
                     <i class="fa-solid fa-file-excel text-emerald-300 text-lg"></i>
-                    <h3 class="font-bold text-base">Google 試算表 (Google Sheets) 連動設定</h3>
+                    <h3 class="font-bold text-base">「學生資料」試算表雙向連動與同步設定</h3>
                 </div>
                 <button onclick="closeGasModal()" class="text-emerald-200 hover:text-white text-lg">
                     <i class="fa-solid fa-xmark"></i>
@@ -379,28 +408,56 @@
 
             <div class="p-5 overflow-y-auto space-y-4 text-xs text-slate-600 leading-relaxed">
                 <div class="p-3 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-lg space-y-1">
-                    <p class="font-bold flex items-center gap-1"><i class="fa-solid fa-circle-info"></i> 功能說明：</p>
-                    <p>將點名紀錄（含課程班級、原班級、座號、出缺席狀態）自動發送並同步寫入 Google 試算表中：</p>
+                    <p class="font-bold flex items-center gap-1"><i class="fa-solid fa-circle-info"></i> 「學生資料」試算表連動說明：</p>
+                    <p>已完美適應您的「學生資料」試算表（包含 <b>`高二班級`</b> 與 <b>`高三班級`</b> 頁籤）。透過下方 Apps Script，網頁可以直接讀取這兩個頁籤裡的名單，並將點名紀錄自動記錄於對應的分頁中！</p>
                 </div>
 
                 <ol class="list-decimal list-inside space-y-2 font-medium text-slate-700 bg-slate-50 p-3 rounded-lg border border-slate-200">
-                    <li>開啟 Google 試算表，點擊選單 <span class="bg-white px-1.5 py-0.5 border rounded">擴充功能</span> ➔ <span class="bg-white px-1.5 py-0.5 border rounded">Apps Script</span>。</li>
-                    <li>刪除原本程式碼，將下方【混班自動分頁專用程式碼】貼上並存檔。</li>
-                    <li>點擊右上角 <span class="bg-emerald-600 text-white px-1.5 py-0.5 rounded">部署</span> ➔ <span class="bg-white px-1.5 py-0.5 border rounded">新建部署</span>（類型選「Web 應用程式」，存取權限設為「任何人」），將複製的網址貼在下方輸入框。</li>
+                    <li>在您的「學生資料」試算表中，點擊選單 <span class="bg-white px-1.5 py-0.5 border rounded">擴充功能</span> ➔ <span class="bg-white px-1.5 py-0.5 border rounded">Apps Script</span>。</li>
+                    <li>將裡面的程式碼全部刪除，貼上下方專用程式碼並存檔。</li>
+                    <li>點擊右上角 <span class="bg-emerald-600 text-white px-1.5 py-0.5 rounded">部署</span> ➔ <span class="bg-white px-1.5 py-0.5 border rounded">新建部署</span>（類型選「Web 應用程式」，存取權限設為「任何人」），將網址貼在最下方！</li>
                 </ol>
 
                 <div class="space-y-1">
                     <div class="flex justify-between items-center">
-                        <span class="font-semibold text-slate-700">Google Apps Script 專用程式碼：</span>
+                        <span class="font-semibold text-slate-700">Apps Script 雙向同步專用程式碼：</span>
                         <button onclick="copyGasCode()" class="text-emerald-700 hover:underline font-bold text-[11px] flex items-center gap-1">
                             <i class="fa-regular fa-copy"></i> 複製程式碼
                         </button>
                     </div>
                     <pre id="gasCodeText" class="p-3 bg-slate-900 text-emerald-400 font-mono text-[11px] rounded-lg overflow-x-auto select-all">
+function doGet(e) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var action = e.parameter.action;
+  
+  if (action === "getRoster") {
+    var className = e.parameter.className || "高二班級";
+    var sheet = ss.getSheetByName(className) || ss.getSheets()[0];
+    var data = sheet.getDataRange().getValues();
+    var roster = [];
+    
+    for (var i = 1; i < data.length; i++) {
+      var row = data[i];
+      if (row[0] || row[1] || row[2]) {
+        roster.push({
+          homeClass: row[0] ? String(row[0]) : "",
+          studentId: row[1] ? String(row[1]) : "",
+          name: row[2] ? String(row[2]) : (row[1] ? String(row[1]) : String(row[0]))
+        });
+      }
+    }
+    
+    return ContentService.createTextOutput(JSON.stringify({ status: "success", className: className, roster: roster }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+  
+  return ContentService.createTextOutput("Google Sheets Webhook Ready");
+}
+
 function doPost(e) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var data = JSON.parse(e.postData.contents);
-  var className = data.className || "混班選修";
+  var className = data.className || "高二班級";
   
   var sheet = ss.getSheetByName(className);
   if (!sheet) {
@@ -435,13 +492,18 @@ function doPost(e) {
                 </div>
             </div>
 
-            <div class="p-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-2">
-                <button onclick="closeGasModal()" class="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-medium rounded-lg transition">
-                    取消
+            <div class="p-4 bg-slate-50 border-t border-slate-200 flex justify-between items-center">
+                <button onclick="syncRosterFromGoogleSheet()" class="px-3 py-1.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-900 text-xs font-bold rounded-lg transition flex items-center gap-1 border border-emerald-300">
+                    <i class="fa-solid fa-rotate"></i> 測試並從「高二班級/高三班級」頁籤同步名單
                 </button>
-                <button onclick="saveGasWebhook()" class="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow transition">
-                    儲存設定
-                </button>
+                <div class="flex gap-2">
+                    <button onclick="closeGasModal()" class="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-medium rounded-lg transition">
+                        取消
+                    </button>
+                    <button onclick="saveGasWebhook()" class="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow transition">
+                        儲存設定
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -492,15 +554,13 @@ function doPost(e) {
     <script>
         // --- DATA & STATE MANAGEMENT ---
         const TOTAL_SEATS_CAPACITY = 40; // 5 rows x 2 clusters x 4 seats
-        let currentClass = '高二混班選修';
+        let currentClass = '高二班級'; // Exact match with user's tab name
         let isEditMode = false;
-        let showHomeClassColors = true; // Toggle for mixed class color coding
+        let showHomeClassColors = true;
         let activeEditIndex = null;
 
-        // Seats Array for active class: 40 seats
         let seats = [];
 
-        // Color Palette for Home Classes (原班級專用視覺色彩庫)
         const HOME_CLASS_COLORS = [
             { bg: 'bg-blue-50/90', border: 'border-blue-300', text: 'text-blue-900', badge: 'bg-blue-600 text-white', dot: 'bg-blue-500' },
             { bg: 'bg-purple-50/90', border: 'border-purple-300', text: 'text-purple-900', badge: 'bg-purple-600 text-white', dot: 'bg-purple-500' },
@@ -514,7 +574,6 @@ function doPost(e) {
             { bg: 'bg-orange-50/90', border: 'border-orange-300', text: 'text-orange-950', badge: 'bg-orange-600 text-white', dot: 'bg-orange-500' },
         ];
 
-        // Sample Mixed Class Rosters for Grade 11 & Grade 12 (包含 201班, 202班, 203班 混班學生)
         function generateMixedSampleRoster(gradePrefix) {
             const homeClasses = [`${gradePrefix}01班`, `${gradePrefix}02班`, `${gradePrefix}03班`];
             const roster = [];
@@ -533,9 +592,152 @@ function doPost(e) {
         }
 
         const classDefaults = {
-            '高二混班選修': generateMixedSampleRoster('2'),
-            '高三混班選修': generateMixedSampleRoster('3')
+            '高二班級': generateMixedSampleRoster('2'),
+            '高三班級': generateMixedSampleRoster('3')
         };
+
+        // --- GOOGLE SHEETS ROSTER SYNC (GET) ---
+
+        async function syncRosterFromGoogleSheet() {
+            const webhookUrl = localStorage.getItem('classroom_gas_url');
+            if (!webhookUrl) {
+                showToast('請先點擊「試算表設定」輸入 Webhook 網址', 'warning');
+                openGasModal();
+                return;
+            }
+
+            showToast(`正在從「學生資料」試算表同步【${currentClass}】頁籤...`, 'info');
+
+            try {
+                const fetchUrl = `${webhookUrl}?action=getRoster&className=${encodeURIComponent(currentClass)}`;
+                const response = await fetch(fetchUrl);
+                const result = await response.json();
+
+                if (result && result.roster && result.roster.length > 0) {
+                    createSnapshotBeforeEdit();
+
+                    seats.forEach(s => {
+                        s.homeClass = '';
+                        s.studentId = '';
+                        s.name = '';
+                        s.status = 'present';
+                    });
+
+                    result.roster.forEach((st, idx) => {
+                        if (idx < TOTAL_SEATS_CAPACITY) {
+                            seats[idx].homeClass = st.homeClass || inferHomeClass(st.studentId, '');
+                            seats[idx].studentId = st.studentId || '';
+                            seats[idx].name = st.name || '';
+                        }
+                    });
+
+                    saveSeatsToStorage();
+                    renderGrid();
+                    renderStats();
+                    showToast(`已成功同步【${currentClass}】 ${result.roster.length} 位學生名單！`, 'success');
+                } else {
+                    showToast(`在試算表中未找到【${currentClass}】頁籤或無名單資料`, 'warning');
+                }
+            } catch (err) {
+                console.error(err);
+                showToast('同步名單時發生錯誤，請確認 Apps Script 部署權限設為「任何人」', 'warning');
+            }
+        }
+
+        // --- BACKUP & RESTORE SAFETY FUNCTIONS ---
+
+        function createSnapshotBeforeEdit() {
+            if (seats && seats.length > 0) {
+                const activeCount = seats.filter(s => s.name || s.studentId).length;
+                if (activeCount > 0) {
+                    const snapshotKey = `classroom_auto_backup_${currentClass}`;
+                    localStorage.setItem(snapshotKey, JSON.stringify(seats));
+                }
+            }
+        }
+
+        function restoreAutoBackup() {
+            const snapshotKey = `classroom_auto_backup_${currentClass}`;
+            const backup = localStorage.getItem(snapshotKey);
+            if (!backup) {
+                showToast(`尚無【${currentClass}】的上一次備份名單`, 'warning');
+                return;
+            }
+            try {
+                seats = JSON.parse(backup);
+                saveSeatsToStorage();
+                renderGrid();
+                renderStats();
+                showToast(`已成功復原【${currentClass}】上次設定的名單！`, 'success');
+            } catch(e) {
+                showToast('復原備份時發生錯誤', 'warning');
+            }
+        }
+
+        function exportBackupJSON() {
+            saveSeatsToStorage();
+            
+            const backupData = {
+                version: "2.0",
+                exportTime: new Date().toLocaleString("zh-TW", { timeZone: "Asia/Taipei" }),
+                activeClass: currentClass,
+                classesData: {
+                    '高二班級': JSON.parse(localStorage.getItem('classroom_seats_高二班級') || '[]'),
+                    '高三班級': JSON.parse(localStorage.getItem('classroom_seats_高三班級') || '[]')
+                },
+                webhookUrl: localStorage.getItem('classroom_gas_url') || ''
+            };
+
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `班級點名座位表總備份_${new Date().toISOString().split('T')[0]}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+            showToast('已匯出全班級備份 JSON 檔案！可在學校電腦讀取還原', 'success');
+        }
+
+        function triggerImportJSON() {
+            document.getElementById('backupFileInput').click();
+        }
+
+        function importBackupJSON(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if (imported.classesData) {
+                        if (imported.classesData['高二班級'] && imported.classesData['高二班級'].length) {
+                            localStorage.setItem('classroom_seats_高二班級', JSON.stringify(imported.classesData['高二班級']));
+                        }
+                        if (imported.classesData['高三班級'] && imported.classesData['高三班級'].length) {
+                            localStorage.setItem('classroom_seats_高三班級', JSON.stringify(imported.classesData['高三班級']));
+                        }
+                    }
+                    if (imported.webhookUrl) {
+                        localStorage.setItem('classroom_gas_url', imported.webhookUrl);
+                    }
+                    if (imported.activeClass) {
+                        currentClass = imported.activeClass;
+                        localStorage.setItem('classroom_active_class', currentClass);
+                    }
+
+                    updateClassLabelsUI();
+                    initSeats();
+                    renderGrid();
+                    renderStats();
+                    showToast('已成功讀取並還原所有班級資料與名單！', 'success');
+                } catch(err) {
+                    console.error(err);
+                    showToast('備份檔案格式不正確，請確認檔案後重試', 'warning');
+                }
+            };
+            reader.readAsText(file);
+        }
 
         // --- HOME CLASS COLOR HELPER ---
         function getHomeClassColor(homeClassStr) {
@@ -548,7 +750,6 @@ function doPost(e) {
             return HOME_CLASS_COLORS[index];
         }
 
-        // Infer Home Class name from Student ID if empty (e.g., 20101 -> 201班)
         function inferHomeClass(studentId, explicitHomeClass) {
             if (explicitHomeClass && explicitHomeClass.trim()) {
                 return explicitHomeClass.trim();
@@ -565,6 +766,7 @@ function doPost(e) {
 
         function switchClass(newClass) {
             saveSeatsToStorage();
+            
             currentClass = newClass;
             localStorage.setItem('classroom_active_class', currentClass);
             
@@ -606,11 +808,27 @@ function doPost(e) {
             
             if (savedSeats) {
                 try {
-                    seats = JSON.parse(savedSeats);
-                    return;
+                    const parsed = JSON.parse(savedSeats);
+                    if (parsed && parsed.length > 0) {
+                        seats = parsed;
+                        return;
+                    }
                 } catch(e) {
                     console.error("Error loading saved seats for " + currentClass, e);
                 }
+            }
+
+            const snapshotKey = `classroom_auto_backup_${currentClass}`;
+            const autoBackup = localStorage.getItem(snapshotKey);
+            if (autoBackup) {
+                try {
+                    const parsedBackup = JSON.parse(autoBackup);
+                    if (parsedBackup && parsedBackup.length > 0) {
+                        seats = parsedBackup;
+                        saveSeatsToStorage();
+                        return;
+                    }
+                } catch(e){}
             }
 
             const defaultRoster = classDefaults[currentClass] || generateMixedSampleRoster('2');
@@ -641,6 +859,7 @@ function doPost(e) {
         }
 
         function saveSeatsToStorage() {
+            if (!seats || seats.length === 0) return;
             const storageKey = `classroom_seats_${currentClass}`;
             localStorage.setItem(storageKey, JSON.stringify(seats));
         }
@@ -904,7 +1123,7 @@ function doPost(e) {
             } else {
                 badge.innerText = '點名模式';
                 badge.className = 'text-xs px-2 py-0.5 bg-amber-500 text-slate-900 rounded font-bold';
-                btnText.innerText = '編輯名單 / 座位';
+                btnText.innerText = '編輯座位';
                 notice.classList.add('hidden');
                 document.body.classList.remove('edit-mode-active');
             }
@@ -931,6 +1150,8 @@ function doPost(e) {
 
         function saveSingleSeat() {
             if (activeEditIndex === null) return;
+            createSnapshotBeforeEdit();
+
             const hc = document.getElementById('editSeatHomeClass').value.trim();
             const code = document.getElementById('editSeatCode').value.trim();
             const name = document.getElementById('editSeatName').value.trim();
@@ -948,6 +1169,8 @@ function doPost(e) {
 
         function clearCurrentSeat() {
             if (activeEditIndex === null) return;
+            createSnapshotBeforeEdit();
+
             seats[activeEditIndex].homeClass = '';
             seats[activeEditIndex].studentId = '';
             seats[activeEditIndex].name = '';
@@ -983,6 +1206,8 @@ function doPost(e) {
                 showToast('請先貼上混班學生名單', 'warning');
                 return;
             }
+
+            createSnapshotBeforeEdit();
 
             const lines = rawText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
             
@@ -1020,6 +1245,8 @@ function doPost(e) {
         }
 
         function fillSampleSeatsForCurrentClass() {
+            createSnapshotBeforeEdit();
+
             seats.forEach(s => {
                 s.homeClass = '';
                 s.studentId = '';
@@ -1039,11 +1266,13 @@ function doPost(e) {
             saveSeatsToStorage();
             renderGrid();
             renderStats();
-            showToast(`已重置【${currentClass}】混班預設名單`, 'success');
+            showToast(`已重置【${currentClass}】範例名單`, 'success');
         }
 
         function clearAllSeats() {
             if (confirm(`確定要清空【${currentClass}】所有座位名單嗎？`)) {
+                createSnapshotBeforeEdit();
+
                 seats.forEach(s => {
                     s.homeClass = '';
                     s.studentId = '';
@@ -1075,12 +1304,15 @@ function doPost(e) {
             localStorage.setItem('classroom_gas_url', url);
             closeGasModal();
             showToast('Google 試算表 Webhook 網址已儲存', 'success');
+            if (url) {
+                syncRosterFromGoogleSheet(); // Auto sync roster immediately on save!
+            }
         }
 
         function copyGasCode() {
             const code = document.getElementById('gasCodeText').innerText;
             navigator.clipboard.writeText(code).then(() => {
-                showToast('已複製 GAS 混班自動分頁專用程式碼！', 'success');
+                showToast('已複製 Apps Script 專用程式碼！', 'success');
             });
         }
 
@@ -1198,7 +1430,7 @@ function doPost(e) {
                 <div class="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-1">
                     <div class="flex justify-between items-center font-bold text-slate-700">
                         <span class="flex items-center gap-2">
-                            <span class="px-2 py-0.5 bg-indigo-100 text-indigo-800 text-[11px] rounded">${l.className || '混班選修'}</span>
+                            <span class="px-2 py-0.5 bg-indigo-100 text-indigo-800 text-[11px] rounded">${l.className || '高二班級'}</span>
                             <span>📅 ${l.date}</span>
                         </span>
                         <span class="text-xs font-semibold px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded">出席率 ${l.rate}%</span>
@@ -1224,18 +1456,18 @@ function doPost(e) {
             logs.forEach(l => {
                 const absentStr = `"${(l.absentList || []).join('; ')}"`;
                 const excusedStr = `"${(l.excusedList || []).join('; ')}"`;
-                csvContent += `${l.className || '混班選修'},${l.date},${l.total},${l.present},${l.absent},${l.excused},${l.rate}%,${absentStr},${excusedStr},${l.timestamp}\n`;
+                csvContent += `${l.className || '高二班級'},${l.date},${l.total},${l.present},${l.absent},${l.excused},${l.rate}%,${absentStr},${excusedStr},${l.timestamp}\n`;
             });
 
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `混班點名歷史紀錄_${new Date().toISOString().split('T')[0]}.csv`;
+            a.download = `點名歷史紀錄_${new Date().toISOString().split('T')[0]}.csv`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
-            showToast('已匯出混班點名紀錄 CSV 檔案！', 'success');
+            showToast('已匯出點名紀錄 CSV 檔案！', 'success');
         }
 
         function clearHistoryLogs() {
