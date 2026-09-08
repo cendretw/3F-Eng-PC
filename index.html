@@ -574,7 +574,7 @@ function doPost(e) {
 
     <script>
         // --- HARDCODED DEFAULT WEBHOOK URL ---
-        const DEFAULT_GAS_WEBHOOK_URL = "const DEFAULT_GAS_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbwQc3gVoeqe4lsfLWOQJ0FRqvaU6L2AAvbGGftkiaReYnn6rgPQaTxLE7UW4z4GvLZj/exec";";
+        const DEFAULT_GAS_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbwQc3gVoeqe4lsfLWOQJ0FRqvaU6L2AAvbGGftkiaReYnn6rgPQaTxLE7UW4z4GvLZj/exec";
 
         function getActiveWebhookUrl() {
             return localStorage.getItem('classroom_gas_url') || DEFAULT_GAS_WEBHOOK_URL;
@@ -630,51 +630,59 @@ function doPost(e) {
 
         // --- GOOGLE SHEETS ROSTER SYNC (GET) ---
 
-        async function syncRosterFromGoogleSheet() {
-            const webhookUrl = getActiveWebhookUrl();
-            if (!webhookUrl) {
-                showToast('請先點擊「試算表設定」輸入 Webhook 網址', 'warning');
-                openGasModal();
-                return;
-            }
+async function syncRosterFromGoogleSheet() {
+    const webhookUrl = getActiveWebhookUrl();
 
-            showToast(`正在從「學生資料」試算表同步【${currentClass}】頁籤...`, 'info');
+    showToast(`正在從試算表同步名單...`, 'info');
 
-            try {
-                const fetchUrl = `${webhookUrl}?action=getRoster&className=${encodeURIComponent(currentClass)}`;
-                const response = await fetch(fetchUrl);
-                const result = await response.json();
+    try {
+        const fetchUrl = `${webhookUrl}?action=getRoster&className=${encodeURIComponent(currentClass)}&t=${Date.now()}`;
+        const response = await fetch(fetchUrl, { cache: 'no-store' });
+        const result = await response.json();
 
-                if (result && result.roster && result.roster.length > 0) {
-                    createSnapshotBeforeEdit();
+        const roster = result && Array.isArray(result.roster) ? result.roster : [];
 
-                    seats.forEach(s => {
-                        s.homeClass = '';
-                        s.studentId = '';
-                        s.name = '';
-                        s.status = 'present';
-                    });
-
-                    result.roster.forEach((st, idx) => {
-                        if (idx < TOTAL_SEATS_CAPACITY) {
-                            seats[idx].homeClass = st.homeClass || inferHomeClass(st.studentId, '');
-                            seats[idx].studentId = st.studentId || '';
-                            seats[idx].name = st.name || '';
-                        }
-                    });
-
-                    saveSeatsToStorage();
-                    renderGrid();
-                    renderStats();
-                    showToast(`已成功同步【${currentClass}】 ${result.roster.length} 位學生名單！`, 'success');
-                } else {
-                    showToast(`在試算表中未找到【${currentClass}】頁籤或無名單資料`, 'warning');
-                }
-            } catch (err) {
-                console.error(err);
-                showToast('同步名單時發回錯誤，請確認在 Apps Script 中點擊「部署 ➔ 新建部署」(權限設為「任何人」)', 'warning');
-            }
+        if (!roster.length) {
+            showToast(`試算表沒有回傳學生名單`, 'warning');
+            return;
         }
+
+        createSnapshotBeforeEdit();
+
+        seats = [];
+
+        for (let i = 0; i < TOTAL_SEATS_CAPACITY; i++) {
+            const row = Math.floor(i / 8) + 1;
+            const cluster = (i % 8 < 4) ? 'left' : 'right';
+            const posInCluster = i % 4;
+            const st = roster[i] || {};
+
+            const homeClass = st.homeClass || st.原班級 || st.原班別 || '';
+            const studentId = st.studentId || st.座號 || st.學號 || '';
+            const name = st.name || st.姓名 || st.學生姓名 || '';
+
+            seats.push({
+                index: i,
+                row: row,
+                cluster: cluster,
+                pos: posInCluster,
+                homeClass: String(homeClass).trim() || inferHomeClass(String(studentId), ''),
+                studentId: String(studentId).trim(),
+                name: String(name).trim(),
+                status: 'present'
+            });
+        }
+
+        saveSeatsToStorage();
+        renderGrid();
+        renderStats();
+
+        showToast(`已成功同步 ${roster.length} 位學生名單`, 'success');
+    } catch (err) {
+        console.error(err);
+        showToast('同步名單失敗，請確認 GAS 網址與部署權限', 'warning');
+    }
+}
 
         // --- BACKUP & RESTORE SAFETY FUNCTIONS ---
 
