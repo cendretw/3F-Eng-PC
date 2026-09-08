@@ -631,12 +631,73 @@ function doPost(e) {
         // --- GOOGLE SHEETS ROSTER SYNC (GET) ---
 
         async function syncRosterFromGoogleSheet() {
-            const webhookUrl = getActiveWebhookUrl();
-            if (!webhookUrl) {
-                showToast('請先點擊「試算表設定」輸入 Webhook 網址', 'warning');
-                openGasModal();
+    const webhookUrl = getActiveWebhookUrl();
+
+    showToast(`正在從試算表同步【${currentClass}】名單...`, 'info');
+
+    try {
+        const fetchUrl = `${webhookUrl}?action=getRoster&className=${encodeURIComponent(currentClass)}&t=${Date.now()}`;
+        const response = await fetch(fetchUrl, { cache: 'no-store' });
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+
+        const result = await response.json();
+
+        const roster = Array.isArray(result)
+            ? result
+            : Array.isArray(result.roster)
+                ? result.roster
+                : Array.isArray(result.data)
+                    ? result.data
+                    : [];
+
+        if (!roster.length) {
+            showToast(`試算表沒有回傳【${currentClass}】的學生名單`, 'warning');
+            return;
+        }
+
+        createSnapshotBeforeEdit();
+
+        seats.forEach(s => {
+            s.homeClass = '';
+            s.studentId = '';
+            s.name = '';
+            s.status = 'present';
+        });
+
+        roster.forEach((st, idx) => {
+            if (idx >= TOTAL_SEATS_CAPACITY) return;
+
+            if (typeof st === 'string') {
+                seats[idx].homeClass = '';
+                seats[idx].studentId = '';
+                seats[idx].name = st.trim();
+                seats[idx].status = 'present';
                 return;
             }
+
+            const homeClass = st.homeClass || st.原班級 || st.原班別 || st.class || '';
+            const studentId = st.studentId || st.座號 || st.學號 || st.id || '';
+            const name = st.name || st.姓名 || st.student || st.學生姓名 || '';
+
+            seats[idx].homeClass = String(homeClass).trim() || inferHomeClass(String(studentId), '');
+            seats[idx].studentId = String(studentId).trim();
+            seats[idx].name = String(name).trim();
+            seats[idx].status = 'present';
+        });
+
+        saveSeatsToStorage();
+        renderGrid();
+        renderStats();
+
+        showToast(`已成功同步【${currentClass}】 ${roster.length} 位學生名單`, 'success');
+    } catch (err) {
+        console.error(err);
+        showToast('同步名單失敗，請確認 GAS 部署權限是「任何人」且 doGet 有回傳 JSON', 'warning');
+    }
+}
 
             showToast(`正在從「學生資料」試算表同步【${currentClass}】頁籤...`, 'info');
 
